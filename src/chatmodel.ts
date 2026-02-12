@@ -118,9 +118,26 @@ export class ChatModel implements ICompletionModel {
       throw new Error(json.error);
     }
 
+    if (!Array.isArray(json.choices)) {
+      throw new Error(
+        `Unexpected LLM response format: expected choices array, got ${typeof json.choices}`
+      );
+    }
+
     const completions = new Set<string>();
     for (const choice of json.choices) {
-      const content = choice.message.content;
+      const content =
+        typeof choice?.message?.content === "string"
+          ? choice.message.content
+          : typeof choice?.text === "string"
+          ? choice.text
+          : undefined;
+      if (typeof content !== "string") {
+        const snippet = JSON.stringify(choice)?.slice(0, 500);
+        throw new Error(
+          `Unexpected LLM response format: missing string content in choice: ${snippet}`
+        );
+      }
       completions.add(content);
     }
     return completions;

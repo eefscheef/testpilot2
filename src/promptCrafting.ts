@@ -196,6 +196,9 @@ export class Prompt {
     body: string,
     stubOutHeaders: boolean = true
   ): string | undefined {
+    if (typeof body !== "string" || body.trim() === "") {
+      return undefined;
+    }
     let code = "";
 
     // add imports if first line of body does not contain "require"
