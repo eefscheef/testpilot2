@@ -5,7 +5,7 @@ on:
     inputs:
       packages:
         description: "Packages to generate tests for"
-        default: "+benchmarks.txt"
+        default: "+node-geo-point.txt"
       snippetsFrom:
         description: "Code snippets source"
         default: "doc"
@@ -17,7 +17,7 @@ on:
         default: "20"
       maxTokens:
         description: "Maximum number of tokens in each completion"
-        default: "2048"
+        default: "4096"
       temperatures:
         description: "Sampling temperatures to try when obtaining completions (whitespace-separated)"
         default: "0.0"
