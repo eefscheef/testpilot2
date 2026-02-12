@@ -244,7 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download output zips
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
 
       # - name: Setup tmate session
       #   uses: mxschmitt/action-tmate@v3
@@ -259,7 +259,7 @@ jobs:
           done
           zip -r results.zip results
       - name: Upload combined output files
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: results-all
           path: results.zip
@@ -290,7 +290,7 @@ jobs:
 
       - name: Download artifacts for comparison run
         if: ${{ github.event.inputs.compareTo != '' }}
-        uses: dawidd6/action-download-artifact@v2
+        uses: dawidd6/action-download-artifact@v4
         with:
           run_number: ${{ github.event.inputs.compareTo }}
           name: results-all
