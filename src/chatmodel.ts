@@ -220,7 +220,24 @@ export class ChatModel implements ICompletionModel {
       }
       return result;
     } catch (err: any) {
-      console.warn(`Failed to get completions: ${err.message}`);
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const statusText = err.response?.statusText;
+        const data = err.response?.data;
+        const dataSnippet =
+          typeof data === "string"
+            ? data.slice(0, 2000)
+            : JSON.stringify(data)?.slice(0, 2000);
+        console.warn(
+          `Failed to get completions: HTTP ${status ?? "?"} ${
+            statusText ?? ""
+          }${dataSnippet ? `; body: ${dataSnippet}` : ""}`
+        );
+      } else {
+        console.warn(
+          `Failed to get completions: ${err?.message ?? String(err)}`
+        );
+      }
       return new Set<string>();
     }
   }
