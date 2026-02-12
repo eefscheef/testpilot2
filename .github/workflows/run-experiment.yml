@@ -51,8 +51,8 @@ jobs:
       temperatures: "${{ github.event.inputs.temperatures || '0.0' }}"
       numSnippets: "${{ github.event.inputs.numSnippets || 'all' }}"
       model: "${{ github.event.inputs.model || 'llama-3-70b-instruct' }}"
-      template: './templates/template.hb'
-      retryTemplate: './templates/retry-template.hb'
+      template: "./templates/template.hb"
+      retryTemplate: "./templates/retry-template.hb"
     steps:
       - uses: actions/checkout@v3
 
@@ -160,12 +160,12 @@ jobs:
 
       # - name: Setup tmate session
       #   uses: mxschmitt/action-tmate@v3
-      #   if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}    
+      #   if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
       - name: Generate tests
         env:
-          TESTPILOT_LLM_API_ENDPOINT: '${{ secrets.TESTPILOT_LLM_API_ENDPOINT }}'
-          TESTPILOT_LLM_AUTH_HEADERS: '${{ secrets.TESTPILOT_LLM_AUTH_HEADERS }}'
+          TESTPILOT_LLM_API_ENDPOINT: "${{ secrets.TESTPILOT_LLM_API_ENDPOINT }}"
+          TESTPILOT_LLM_AUTH_HEADERS: "${{ secrets.TESTPILOT_LLM_AUTH_HEADERS }}"
         run: |
           cd testpilot
           outputdir="results/$TESTPILOT_PACKAGE_NAME"
@@ -215,7 +215,7 @@ jobs:
           zip -r results.zip results
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: results-${{ steps.pkg-name.outputs.pkgName }}
           path: "testpilot/results.zip"
