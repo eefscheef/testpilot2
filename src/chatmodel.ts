@@ -32,6 +32,42 @@ export class ChatModel implements ICompletionModel {
   private readonly apiEndpoint: string;
   private readonly authHeaders: string;
 
+  private static extractChoiceText(choice: any): string | undefined {
+    const content =
+      choice?.message?.content ??
+      choice?.delta?.content ??
+      choice?.text ??
+      choice?.content;
+
+    if (typeof content === "string") {
+      return content;
+    }
+
+    // Some APIs represent content as an array of parts, e.g. [{type:'text', text:'...'}]
+    if (Array.isArray(content)) {
+      const parts: string[] = [];
+      for (const item of content) {
+        if (typeof item === "string") {
+          parts.push(item);
+        } else if (typeof item?.text === "string") {
+          parts.push(item.text);
+        } else if (typeof item?.content === "string") {
+          parts.push(item.content);
+        }
+      }
+      const joined = parts.join("");
+      return joined.length > 0 ? joined : undefined;
+    }
+
+    if (content && typeof content === "object") {
+      if (typeof (content as any).text === "string") {
+        return (content as any).text;
+      }
+    }
+
+    return undefined;
+  }
+
   constructor(
     private readonly model: string,
     private readonly nrAttempts: number,
@@ -125,20 +161,24 @@ export class ChatModel implements ICompletionModel {
     }
 
     const completions = new Set<string>();
+    let skipped = 0;
     for (const choice of json.choices) {
-      const content =
-        typeof choice?.message?.content === "string"
-          ? choice.message.content
-          : typeof choice?.text === "string"
-          ? choice.text
-          : undefined;
-      if (typeof content !== "string") {
-        const snippet = JSON.stringify(choice)?.slice(0, 500);
-        throw new Error(
-          `Unexpected LLM response format: missing string content in choice: ${snippet}`
-        );
+      const text = ChatModel.extractChoiceText(choice);
+      if (typeof text !== "string") {
+        skipped++;
+        continue;
       }
-      completions.add(content);
+      completions.add(text);
+    }
+
+    if (skipped > 0) {
+      const first = json.choices.find(
+        (c: any) => typeof ChatModel.extractChoiceText(c) !== "string"
+      );
+      const snippet = JSON.stringify(first)?.slice(0, 500);
+      console.warn(
+        `Warning: skipped ${skipped} LLM choice(s) with no text content. Example: ${snippet}`
+      );
     }
     return completions;
   }
