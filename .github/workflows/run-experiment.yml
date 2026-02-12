@@ -15,6 +15,9 @@ on:
       snippetLength:
         description: "Maximum length of each snippet in lines"
         default: "20"
+      maxTokens:
+        description: "Maximum number of tokens in each completion"
+        default: "1000"
       temperatures:
         description: "Sampling temperatures to try when obtaining completions (whitespace-separated)"
         default: "0.0"
@@ -48,6 +51,7 @@ jobs:
       packages: "${{ steps.parse_packages.outputs.packages }}"
       snippetsFrom: "${{ github.event.inputs.snippetsFrom || 'doc' }}"
       snippetLength: "${{ github.event.inputs.snippetLength || '20' }}"
+      maxTokens: "${{ github.event.inputs.maxTokens || '1000' }}"
       temperatures: "${{ github.event.inputs.temperatures || '0.0' }}"
       numSnippets: "${{ github.event.inputs.numSnippets || 'all' }}"
       model: "${{ github.event.inputs.model || 'llama-3-70b-instruct' }}"
@@ -180,6 +184,10 @@ jobs:
             --package "$TESTPILOT_PACKAGE_PATH" \
             --temperatures "${{ needs.setup.outputs.temperatures }}" \
             --model ${{ needs.setup.outputs.model }} \
+            --maxTokens ${{ needs.setup.outputs.maxTokens }} \
+            --snippets ${{ needs.setup.outputs.snippetsFrom }} \
+            --numSnippets ${{ needs.setup.outputs.numSnippets }} \
+            --snippetLength ${{ needs.setup.outputs.snippetLength }} \
             --template ${{ needs.setup.outputs.template }} \
             --retryTemplate ${{ needs.setup.outputs.retryTemplate }} \
             --rateLimit benchmark"
@@ -189,6 +197,10 @@ jobs:
             --package "$TESTPILOT_PACKAGE_PATH" \
             --temperatures "${{ needs.setup.outputs.temperatures }}" \
             --model ${{ needs.setup.outputs.model }} \
+            --maxTokens ${{ needs.setup.outputs.maxTokens }} \
+            --snippets ${{ needs.setup.outputs.snippetsFrom }} \
+            --numSnippets ${{ needs.setup.outputs.numSnippets }} \
+            --snippetLength ${{ needs.setup.outputs.snippetLength }} \
             --template ${{ needs.setup.outputs.template }} \
             --retryTemplate ${{ needs.setup.outputs.retryTemplate }}"
           fi
