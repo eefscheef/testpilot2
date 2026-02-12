@@ -58,7 +58,7 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: 12
+          node-version: 20
 
       - id: parse_packages
         run: |
@@ -92,7 +92,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 12
+          node-version: 20
 
       - name: Set up TestPilot
         run: |
@@ -145,7 +145,7 @@ jobs:
       - name: Install package, its dependencies, and test packages
         run: |
           cd $TESTPILOT_PACKAGE_PATH
-          npm i || npm i --legacy-peer-deps
+          npm i || npm i --legacy-peer-deps || npm i --ignore-scripts || npm i --legacy-peer-deps --ignore-scripts
           # if matrix.package.dependencies is not empty, install them
           if ! [ -z "${{ matrix.package.dependencies }}" ]; then
             npm i ${{ matrix.package.dependencies }}
@@ -264,7 +264,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 12
+          node-version: 20
 
       - name: Set up TestPilot
         run: |
