@@ -16,6 +16,18 @@ const defaultPostOptions = {
 };
 export type PostOptions = Partial<typeof defaultPostOptions>;
 
+type ChatCompletionsRequest = {
+  model: string;
+  stream?: boolean;
+  messages: { role: string; content: string }[];
+  max_tokens?: number;
+  // Gemini OpenAI-compat endpoint tends to honor this name.
+  max_output_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  [key: string]: any;
+};
+
 function getEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -110,8 +122,11 @@ export class ChatModel implements ICompletionModel {
 
     performance.mark("llm-query-start");
 
-    const postOptions = {
+    const postOptions: ChatCompletionsRequest = {
       model: this.model,
+      // Some OpenAI-compatible endpoints (including Gemini proxies) may default
+      // to streaming; we only support non-streaming responses.
+      stream: false,
       messages: [
         {
           role: "system",
@@ -124,6 +139,12 @@ export class ChatModel implements ICompletionModel {
       ],
       ...options,
     };
+
+    // Gemini's OpenAI-compat endpoint often expects max_output_tokens.
+    if (this.apiEndpoint.includes("generativelanguage.googleapis.com")) {
+      postOptions.max_output_tokens =
+        postOptions.max_output_tokens ?? postOptions.max_tokens;
+    }
 
     const res = await retry(
       () =>

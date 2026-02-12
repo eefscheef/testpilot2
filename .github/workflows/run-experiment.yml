@@ -17,14 +17,14 @@ on:
         default: "20"
       maxTokens:
         description: "Maximum number of tokens in each completion"
-        default: "1000"
+        default: "2048"
       temperatures:
         description: "Sampling temperatures to try when obtaining completions (whitespace-separated)"
         default: "0.0"
       model:
         description: "Which LLM API to use"
         type: "string"
-        default: "meta-llama-3-70b-instruct"
+        default: "gemini-2.5-pro"
       compareTo:
         description: "Run number of previous run to compare to (leave empty to skip comparison)"
         default: ""
@@ -54,7 +54,7 @@ jobs:
       maxTokens: "${{ github.event.inputs.maxTokens || '1000' }}"
       temperatures: "${{ github.event.inputs.temperatures || '0.0' }}"
       numSnippets: "${{ github.event.inputs.numSnippets || 'all' }}"
-      model: "${{ github.event.inputs.model || 'llama-3-70b-instruct' }}"
+      model: "${{ github.event.inputs.model || 'gemini-2.5-pro' }}"
       template: "./templates/template.hb"
       retryTemplate: "./templates/retry-template.hb"
     steps:
