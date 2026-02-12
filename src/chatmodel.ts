@@ -140,12 +140,6 @@ export class ChatModel implements ICompletionModel {
       ...options,
     };
 
-    // Gemini's OpenAI-compat endpoint often expects max_output_tokens.
-    if (this.apiEndpoint.includes("generativelanguage.googleapis.com")) {
-      postOptions.max_output_tokens =
-        postOptions.max_output_tokens ?? postOptions.max_tokens;
-    }
-
     const res = await retry(
       () =>
         this.rateLimiter!.next(() =>
