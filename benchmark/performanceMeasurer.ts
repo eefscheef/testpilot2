@@ -1,5 +1,6 @@
 import { performance, PerformanceObserver } from "perf_hooks";
-import { CodexPostOptions } from "..";
+
+type QueryPostOptions = Record<string, unknown>;
 
 export class PerformanceMeasurer {
   /** Time stamp when this measurer was instantiated. */
@@ -18,10 +19,23 @@ export class PerformanceMeasurer {
   private readonly testDurations: Map<string, number> = new Map();
 
   /**
-   * Response times for requests to the Codex model together with the
-   * corresponding request options.
+   * Response times for model queries together with corresponding request options.
+   *
+   * Historical naming is preserved for backward compatibility with existing output
+   * files and analysis scripts.
    */
-  private readonly codexQueryTimes: [CodexPostOptions, number][] = [];
+  private readonly codexQueryTimes: [QueryPostOptions, number][] = [];
+
+  private static parseModelQueryOptions(
+    entryName: string
+  ): QueryPostOptions | undefined {
+    // Accept legacy and newer query markers, e.g. "codex-query:" and "llm-query:".
+    const marker = entryName.match(/^[a-z0-9_-]*query:/i)?.[0];
+    if (!marker) {
+      return undefined;
+    }
+    return JSON.parse(entryName.substring(marker.length));
+  }
 
   /** An observer for performance measurements. */
   private readonly observer = new PerformanceObserver((entries) => {
@@ -33,12 +47,6 @@ export class PerformanceMeasurer {
           console.warn(`Multiple durations for test ${testName}`);
         }
         this.testDurations.set(testName, entry.duration);
-      } else if (entry.name.startsWith("codex-query:")) {
-        // for each Codex query, we get a performance measurement `codex-query:<options>`
-        const options = JSON.parse(entry.name.substring("codex-query:".length));
-        // remove `logit_bias` property; it's an internal workaround
-        delete options.logit_bias;
-        this.codexQueryTimes.push([options, entry.duration]);
       } else if (entry.name === "snippet-extraction") {
         this.snippetExtractionTime = entry.duration;
       } else if (entry.name === "doc-comment-extraction") {
@@ -49,6 +57,15 @@ export class PerformanceMeasurer {
         }
       } else if (entry.name === "api-exploration") {
         this.apiExplorationTime = entry.duration;
+      } else {
+        const options = PerformanceMeasurer.parseModelQueryOptions(entry.name);
+        if (!options) {
+          continue;
+        }
+
+        // remove `logit_bias` property; it's an internal workaround
+        delete options.logit_bias;
+        this.codexQueryTimes.push([options, entry.duration]);
       }
     }
   });
@@ -88,10 +105,12 @@ export class PerformanceMeasurer {
   }
 
   /**
-   * Get a list of response times (in milliseconds) for Codex queries
-   * together with the corresponding request parameters.
+   * Get a list of response times (in milliseconds) for model queries together
+   * with the corresponding request parameters.
+   *
+   * Method name is preserved for backward compatibility.
    */
-  getCodexQueryTimes(): [CodexPostOptions, number][] {
+  getCodexQueryTimes(): [QueryPostOptions, number][] {
     return this.codexQueryTimes;
   }
 
