@@ -255,9 +255,19 @@ jobs:
       - name: Combine output zips
         run: |
           mkdir results
-          for zip in results-*/results.zip
-          do
-            unzip -oq $zip
+          mapfile -t zips < <(find . -type f -name '*.zip')
+          if [ ${#zips[@]} -eq 0 ]; then
+            echo "ERROR: No zip artifacts found after download."
+            find . -maxdepth 3 -type f | sort
+            exit 1
+          fi
+          # download-artifact@v8 with skip-decompress can produce a zip that contains
+          # the uploaded results.zip; unpack repeatedly until the nested zip is gone.
+          while mapfile -t zips < <(find . -type f -name '*.zip' -not -path './results.zip') && [ ${#zips[@]} -gt 0 ]; do
+            for zip in "${zips[@]}"; do
+              unzip -oq "$zip"
+              rm -f "$zip"
+            done
           done
           zip -r results.zip results
       - name: Upload combined output files
@@ -310,13 +320,28 @@ jobs:
       - name: Generate report
         run: |
           cd results
-          unzip results.zip
+          while mapfile -t zips < <(find . -type f -name '*.zip') && [ ${#zips[@]} -gt 0 ]; do
+            for zip in "${zips[@]}"; do
+              unzip -oq "$zip"
+              rm -f "$zip"
+            done
+          done
+          if [ ! -d results ]; then
+            echo "ERROR: Expected extracted ./results directory not found"
+            find . -maxdepth 4 | sort
+            exit 1
+          fi
           cd ..
 
           echo '${{ toJson(needs.setup.outputs) }}' > config.json
           if [ -d baseline ]; then
             cd baseline
-            unzip results.zip
+            while mapfile -t zips < <(find . -type f -name '*.zip') && [ ${#zips[@]} -gt 0 ]; do
+              for zip in "${zips[@]}"; do
+                unzip -oq "$zip"
+                rm -f "$zip"
+              done
+            done
             cd .. 
             baseline_artifact=baseline/results
           else
