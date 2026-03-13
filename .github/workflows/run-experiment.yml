@@ -58,11 +58,11 @@ jobs:
       template: "./templates/template.hb"
       retryTemplate: "./templates/retry-template.hb"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       - id: parse_packages
         run: |
@@ -81,7 +81,7 @@ jobs:
       matrix:
         package: ${{ fromJson(needs.setup.outputs.packages) }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           path: testpilot
 
@@ -94,9 +94,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Set up TestPilot
         run: |
@@ -107,7 +107,7 @@ jobs:
 
       - name: Checkout github package repo
         if: ${{ matrix.package.host == 'github.com' }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           repository: ${{ format('{0}/{1}', matrix.package.owner, matrix.package.repo) }}
           ref: ${{ matrix.package.sha }}
@@ -227,7 +227,7 @@ jobs:
           zip -r results.zip results
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: results-${{ steps.pkg-name.outputs.pkgName }}
           path: "testpilot/results.zip"
@@ -244,7 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download output zips
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       # - name: Setup tmate session
       #   uses: mxschmitt/action-tmate@v3
@@ -259,7 +259,7 @@ jobs:
           done
           zip -r results.zip results
       - name: Upload combined output files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: results-all
           path: results.zip
@@ -271,26 +271,26 @@ jobs:
       - combine_output
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Set up TestPilot
         run: |
           npm run build
 
       - name: Download artifacts for this run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: results-all
           path: results
 
       - name: Download artifacts for comparison run
         if: ${{ github.event.inputs.compareTo != '' }}
-        uses: dawidd6/action-download-artifact@v4
+        uses: dawidd6/action-download-artifact@v17
         with:
           run_number: ${{ github.event.inputs.compareTo }}
           name: results-all
