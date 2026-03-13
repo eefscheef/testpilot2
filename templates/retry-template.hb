@@ -9,4 +9,10 @@ failed with the following error message:
 
 Your task is to modify the above code to fix the test. 
 
-Provide your answer as a fenced code block.
+Important constraints:
+- Return JavaScript only.
+- Return exactly one `it(...)` test case.
+- Do not include explanations, comments about assumptions, or placeholder code such as `pass`.
+- Keep the output concise.
+
+Provide your answer as a fenced `javascript` code block containing only code.
