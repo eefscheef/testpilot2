@@ -181,9 +181,9 @@ jobs:
           node benchmark/package_stats.js "$TESTPILOT_PACKAGE_PATH" > stats.json
           echo "Generating tests for $TESTPILOT_PACKAGE_NAME"
 
-          rate_limit_arg=""
+          rate_limit_value=""
           if (${{ github.event.inputs.rateLimiting }}); then
-            rate_limit_arg="--rateLimit benchmark"
+            rate_limit_value="benchmark"
           fi
 
           if [ -n "${{ github.event.inputs.maxRequestsPerMinute }}" ]; then
@@ -194,24 +194,28 @@ jobs:
             fi
             rate_limit_ms=$(( (60000 + rpm - 1) / rpm ))
             echo "Using fixed rate limit derived from maxRequestsPerMinute=$rpm => ${rate_limit_ms}ms between requests"
-            rate_limit_arg="--rateLimit $rate_limit_ms"
+            rate_limit_value="$rate_limit_ms"
           fi
 
-          export command="node benchmark/run.js \
-          --outputDir $outputdir \
-          --package \"$TESTPILOT_PACKAGE_PATH\" \
-          --temperatures \"${{ needs.setup.outputs.temperatures }}\" \
-          --model ${{ needs.setup.outputs.model }} \
-          --maxTokens ${{ needs.setup.outputs.maxTokens }} \
-          --snippets ${{ needs.setup.outputs.snippetsFrom }} \
-          --numSnippets ${{ needs.setup.outputs.numSnippets }} \
-          --snippetLength ${{ needs.setup.outputs.snippetLength }} \
-          --template ${{ needs.setup.outputs.template }} \
-          --retryTemplate ${{ needs.setup.outputs.retryTemplate }} \
-          $rate_limit_arg"
-           
-          echo "command: $command"
-          $command
+          rate_limit_args=()
+          if [ -n "$rate_limit_value" ]; then
+            rate_limit_args=(--rateLimit "$rate_limit_value")
+          fi
+
+          echo "command: node benchmark/run.js --outputDir $outputdir --package $TESTPILOT_PACKAGE_PATH --temperatures '${{ needs.setup.outputs.temperatures }}' --model ${{ needs.setup.outputs.model }} --maxTokens ${{ needs.setup.outputs.maxTokens }} --snippets ${{ needs.setup.outputs.snippetsFrom }} --numSnippets ${{ needs.setup.outputs.numSnippets }} --snippetLength ${{ needs.setup.outputs.snippetLength }} --template ${{ needs.setup.outputs.template }} --retryTemplate ${{ needs.setup.outputs.retryTemplate }} ${rate_limit_args[*]}"
+
+          node benchmark/run.js \
+            --outputDir "$outputdir" \
+            --package "$TESTPILOT_PACKAGE_PATH" \
+            --temperatures "${{ needs.setup.outputs.temperatures }}" \
+            --model "${{ needs.setup.outputs.model }}" \
+            --maxTokens "${{ needs.setup.outputs.maxTokens }}" \
+            --snippets "${{ needs.setup.outputs.snippetsFrom }}" \
+            --numSnippets "${{ needs.setup.outputs.numSnippets }}" \
+            --snippetLength "${{ needs.setup.outputs.snippetLength }}" \
+            --template "${{ needs.setup.outputs.template }}" \
+            --retryTemplate "${{ needs.setup.outputs.retryTemplate }}" \
+            "${rate_limit_args[@]}"
           mv stats.json $outputdir
 
       - name: Calculate edit distance of generated tests
