@@ -28,7 +28,6 @@ type ChatCompletionsRequest = {
   messages: { role: string; content: string }[];
   max_tokens?: number;
   max_completion_tokens?: number;
-  // Gemini OpenAI-compat endpoint tends to honor this name.
   max_output_tokens?: number;
   temperature?: number;
   top_p?: number;
@@ -155,13 +154,6 @@ export class ChatModel implements ICompletionModel {
     ) {
       aliasedOptions.max_completion_tokens = maxTokenBudget;
       delete aliasedOptions.max_tokens;
-    }
-    if (
-      maxTokenBudget !== undefined &&
-      aliasedOptions.max_output_tokens === undefined &&
-      /gemini/i.test(model)
-    ) {
-      aliasedOptions.max_output_tokens = maxTokenBudget;
     }
     return aliasedOptions;
   }
