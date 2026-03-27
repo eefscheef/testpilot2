@@ -18,13 +18,22 @@ on:
       maxTokens:
         description: "Maximum number of tokens in each completion"
         default: "4096"
+      maxTokensPerMinute:
+        description: "Max estimated provider tokens per minute (empty disables token pacing)"
+        default: ""
       temperatures:
         description: "Sampling temperatures to try when obtaining completions (whitespace-separated)"
         default: "0.0"
       model:
         description: "Which LLM API to use"
         type: "string"
-        default: "gemini-2.5-pro"
+        default: "gemini-3-pro-preview"
+      llmApiEndpoint:
+        description: "Full chat completions endpoint URL to use for this run (leave empty to use TESTPILOT_LLM_API_ENDPOINT)"
+        default: ""
+      llmAuthHeadersSecretName:
+        description: "Secret name containing JSON auth headers for the selected provider"
+        default: "TESTPILOT_LLM_AUTH_HEADERS"
       compareTo:
         description: "Run number of previous run to compare to (leave empty to skip comparison)"
         default: ""
@@ -39,6 +48,10 @@ on:
       maxRequestsPerMinute:
         description: "Max LLM requests per minute (empty uses benchmark/no custom RPM)"
         default: ""
+      failOnProviderError:
+        type: boolean
+        description: "Abort the benchmark package when the provider still errors after retries"
+        default: true
       debug_enabled:
         type: boolean
         description: "Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)"
@@ -57,7 +70,8 @@ jobs:
       maxTokens: "${{ github.event.inputs.maxTokens || '1000' }}"
       temperatures: "${{ github.event.inputs.temperatures || '0.0' }}"
       numSnippets: "${{ github.event.inputs.numSnippets || 'all' }}"
-      model: "${{ github.event.inputs.model || 'gemini-2.5-pro' }}"
+      model: "${{ github.event.inputs.model || 'gemini-3-pro-preview' }}"
+      packageCount: "${{ steps.parse_packages.outputs.packageCount }}"
       template: "./templates/template.hb"
       retryTemplate: "./templates/retry-template.hb"
     steps:
@@ -72,7 +86,9 @@ jobs:
           packages=$(node ${GITHUB_WORKSPACE}/.github/parse_packages.js \
             ${{ github.event.inputs.skipSlowBenchmarks == 'true' && '--skip-slow-benchmarks' || '' }} \
             "${{ github.event.inputs.packages || '+benchmarks.txt' }}")
+          package_count=$(node -e "console.log(JSON.parse(process.argv[1]).length)" "$packages")
           echo "packages=$packages" >> $GITHUB_OUTPUT
+          echo "packageCount=$package_count" >> $GITHUB_OUTPUT
 
   benchmark:
     needs:
@@ -171,8 +187,8 @@ jobs:
 
       - name: Generate tests
         env:
-          TESTPILOT_LLM_API_ENDPOINT: "${{ secrets.TESTPILOT_LLM_API_ENDPOINT }}"
-          TESTPILOT_LLM_AUTH_HEADERS: "${{ secrets.TESTPILOT_LLM_AUTH_HEADERS }}"
+          TESTPILOT_LLM_API_ENDPOINT: "${{ github.event.inputs.llmApiEndpoint != '' && github.event.inputs.llmApiEndpoint || secrets.TESTPILOT_LLM_API_ENDPOINT }}"
+          TESTPILOT_LLM_AUTH_HEADERS: "${{ secrets[github.event.inputs.llmAuthHeadersSecretName] }}"
         run: |
           cd testpilot
           outputdir="results/$TESTPILOT_PACKAGE_NAME"
@@ -202,7 +218,17 @@ jobs:
             rate_limit_args=(--rateLimit "$rate_limit_value")
           fi
 
-          echo "command: node benchmark/run.js --outputDir $outputdir --package $TESTPILOT_PACKAGE_PATH --temperatures '${{ needs.setup.outputs.temperatures }}' --model ${{ needs.setup.outputs.model }} --maxTokens ${{ needs.setup.outputs.maxTokens }} --snippets ${{ needs.setup.outputs.snippetsFrom }} --numSnippets ${{ needs.setup.outputs.numSnippets }} --snippetLength ${{ needs.setup.outputs.snippetLength }} --template ${{ needs.setup.outputs.template }} --retryTemplate ${{ needs.setup.outputs.retryTemplate }} ${rate_limit_args[*]}"
+          token_limit_args=()
+          if [ -n "${{ github.event.inputs.maxTokensPerMinute }}" ]; then
+            tpm="${{ github.event.inputs.maxTokensPerMinute }}"
+            if ! [[ "$tpm" =~ ^[0-9]+$ ]] || [ "$tpm" -le 0 ]; then
+              echo "ERROR: maxTokensPerMinute must be a positive integer"
+              exit 1
+            fi
+            token_limit_args=(--tokensPerMinute "$tpm")
+          fi
+
+          echo "command: node benchmark/run.js --outputDir $outputdir --package $TESTPILOT_PACKAGE_PATH --temperatures '${{ needs.setup.outputs.temperatures }}' --model ${{ needs.setup.outputs.model }} --maxTokens ${{ needs.setup.outputs.maxTokens }} --snippets ${{ needs.setup.outputs.snippetsFrom }} --numSnippets ${{ needs.setup.outputs.numSnippets }} --snippetLength ${{ needs.setup.outputs.snippetLength }} --template ${{ needs.setup.outputs.template }} --retryTemplate ${{ needs.setup.outputs.retryTemplate }} --failOnProviderError ${{ github.event.inputs.failOnProviderError }} ${rate_limit_args[*]} ${token_limit_args[*]}"
 
           node benchmark/run.js \
             --outputDir "$outputdir" \
@@ -215,6 +241,8 @@ jobs:
             --snippetLength "${{ needs.setup.outputs.snippetLength }}" \
             --template "${{ needs.setup.outputs.template }}" \
             --retryTemplate "${{ needs.setup.outputs.retryTemplate }}" \
+            --failOnProviderError "${{ github.event.inputs.failOnProviderError }}" \
+            "${token_limit_args[@]}" \
             "${rate_limit_args[@]}"
           mv stats.json $outputdir
 
@@ -264,6 +292,13 @@ jobs:
       - name: Combine output zips
         run: |
           mkdir results
+          expected="${{ needs.setup.outputs.packageCount }}"
+          found=$(find . -type f -name '*.zip' | wc -l)
+          if [ "$found" -ne "$expected" ]; then
+            echo "ERROR: Expected $expected result artifacts but found $found. One or more benchmark jobs failed."
+            find . -maxdepth 4 -type f | sort
+            exit 1
+          fi
           mapfile -t zips < <(find . -type f -name '*.zip')
           if [ ${#zips[@]} -eq 0 ]; then
             echo "ERROR: No zip artifacts found after download."

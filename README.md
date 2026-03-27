@@ -32,6 +32,26 @@ Typical values for these variables might be:
 - `TESTPILOT_LLM_API_ENDPOINT='https://api.perplexity.ai/chat/completions'`
 - `TESTPILOT_LLM_AUTH_HEADERS='{"Authorization": "Bearer <your API key>" }'`
 
+For Azure OpenAI, TestPilot expects the full chat-completions URL, not just the
+API base URL. If your Azure resource base URL is
+`https://<resource>.openai.azure.com/openai/v1`, set:
+
+- `TESTPILOT_LLM_API_ENDPOINT='https://<resource>.openai.azure.com/openai/v1/chat/completions'`
+- `TESTPILOT_LLM_AUTH_HEADERS='{"api-key": "<your Azure API key>" }'`
+
+Then use the Azure deployment name as the `--model` value or workflow `model`
+input. For example, if your deployment is named `gpt-5.4`, run with
+`--model gpt-5.4`.
+
+For Gemini's OpenAI-compatible endpoint, a typical configuration is:
+
+- `TESTPILOT_LLM_API_ENDPOINT='https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'`
+- `TESTPILOT_LLM_AUTH_HEADERS='{"Authorization": "Bearer <your Gemini API key>" }'`
+
+As of November 18, 2025, Google's published model code for Gemini 3 Pro Preview
+is `gemini-3-pro-preview`. Some Google documentation refers to "Gemini 3.1
+Pro", but the model identifier to pass to the API is `gemini-3-pro-preview`.
+
 Note, however, that you can run TestPilot 2 in reproduction mode without access to
 the LLM API where model responses are taken from the output of a previous run;
 see below for details.
@@ -80,6 +100,24 @@ The `run-experiment.yml` workflow runs an experiment on GitHub Actions,
 producing the final report as an artifact you can download. The `results-all`
 artifact contains the results of all packages, while the other artifacts contain
 the individual results of each package.
+
+The workflow accepts optional provider-specific inputs:
+
+- `llmApiEndpoint`: override the endpoint for a single run without changing the
+  repository secret.
+- `llmAuthHeadersSecretName`: choose which secret contains the JSON auth headers
+  for the selected provider.
+- `maxRequestsPerMinute`: fixed request pacing.
+- `maxTokensPerMinute`: estimated token pacing based on prompt size and
+  completion budget. This is useful for token-based quotas such as Azure TPM
+  limits.
+- `failOnProviderError`: fail the package benchmark if the provider still
+  errors after retries.
+
+For an Azure deployment with a 98k TPM limit, start with
+`maxTokensPerMinute=98000`. Because TestPilot runs prompts sequentially, you do
+not need a custom request-per-minute limiter just to integrate Azure, but a
+token limiter is the better fit for token-based quotas.
 
 ### Reproducing results
 
