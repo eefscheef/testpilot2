@@ -5,6 +5,7 @@ import {
   parseReports,
   RefinerStats,
   SimilarityStats,
+  TokenUsageStats,
 } from "./parse_reports";
 
 function percentage(p: number | string) {
@@ -117,6 +118,30 @@ Project | numGeneratedTests | numExistingTests | maxSimilarity
   for (const { proj, similarityReport } of Object.values(stats)) {
     console.log(
       `${proj} | ${similarityReport.numGeneratedTests} | ${similarityReport.numExistingTests} | ${similarityReport.maxSimilarity}`
+    );
+  }
+}
+
+function printTokenUsageReport(title: string, stats: TokenUsageStats) {
+  const hasUsage = Object.values(stats).some(
+    (entry) =>
+      entry.inputTokens !== "--" ||
+      entry.outputTokens !== "--" ||
+      entry.reasoningTokens !== "--" ||
+      entry.totalTokens !== "--"
+  );
+  if (!hasUsage) {
+    return;
+  }
+
+  console.log(`
+# ${title}
+Project | Input tokens | Output tokens | Reasoning tokens | Total tokens | Prompts with usage | Prompts without usage
+--- | --: | --: | --: | --: | --: | --:`);
+
+  for (const entry of Object.values(stats)) {
+    console.log(
+      `${entry.proj} | ${entry.inputTokens} | ${entry.outputTokens} | ${entry.reasoningTokens} | ${entry.totalTokens} | ${entry.promptsWithUsage} | ${entry.promptsWithoutUsage}`
     );
   }
 }
@@ -242,8 +267,13 @@ console.log(`
 - snippet length: ${config.snippetLength}
 - numSnippets: ${config.numSnippets}`);
 
-const { coverageStats, failureStats, refinersStats, similarityStats } =
-  parseReports(artifactDir);
+const {
+  coverageStats,
+  failureStats,
+  refinersStats,
+  similarityStats,
+  tokenUsageStats,
+} = parseReports(artifactDir);
 
 printCoverageReport("Coverage report", coverageStats);
 printFailureReport("Failure report", failureStats);
@@ -252,6 +282,7 @@ printSimilarityReport(
   "Similarity of generated tests to existing tests",
   similarityStats
 );
+printTokenUsageReport("Token usage report", tokenUsageStats);
 
 if (baselineArtifactDir) {
   const baselineResults = parseReports(baselineArtifactDir);

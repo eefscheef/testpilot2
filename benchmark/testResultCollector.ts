@@ -100,6 +100,7 @@ export class TestResultCollector extends BaseTestResultCollector {
       },
       tests: [...this.tests.values()].map(this.getReportForTest, this),
       coverage: this.coverageSummary,
+      tokenUsage: this.getTokenUsageSummary(),
     };
   }
 
@@ -235,7 +236,7 @@ export class TestResultCollector extends BaseTestResultCollector {
     let prompts = {
       metaData: this.metaData,
       prompts: [...this.prompts.values()].map(
-        ({ prompt, id, file, temperature, completions }) => {
+        ({ prompt, id, file, temperature, completions, usage }) => {
           const tests = [...this.tests.values()]
             .filter((test) => test.prompts.includes(prompt))
             .map((test) => test.testName);
@@ -249,6 +250,7 @@ export class TestResultCollector extends BaseTestResultCollector {
             file,
             temperature,
             completions: [...completions.values()],
+            usage,
             tests,
             provenance,
           };

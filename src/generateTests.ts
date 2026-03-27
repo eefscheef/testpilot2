@@ -64,7 +64,7 @@ export class TestGenerator {
         }
         generatedPrompts.set(assembledPrompt, prompt);
 
-        const completions = await this.model.completions(
+        const { completions, usage } = await this.model.completions(
           assembledPrompt,
           temperature
         );
@@ -85,7 +85,12 @@ export class TestGenerator {
             }
           }
         }
-        this.collector.recordPromptInfo(prompt, temperature, completions);
+        this.collector.recordPromptInfo(
+          prompt,
+          temperature,
+          completions,
+          usage
+        );
       }
     }
   }

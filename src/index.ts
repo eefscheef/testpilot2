@@ -1,5 +1,9 @@
 export { Codex, PostOptions as CodexPostOptions } from "./codex";
-export { ICompletionModel } from "./completionModel";
+export {
+  ICompletionModel,
+  ICompletionResult,
+  ITokenUsage,
+} from "./completionModel";
 export { emptyCoverageSummary, ICoverageSummary } from "./coverage";
 export { getDocSnippets } from "./docSnippets";
 export {
@@ -20,6 +24,7 @@ export {
   ITestFailureInfo,
   ITestInfo,
   ITestReport,
+  ITokenUsageSummary,
   ReportForTest,
   TestOutcome,
   TestStatus,

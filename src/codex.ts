@@ -1,7 +1,7 @@
 import axios from "axios";
 import fs from "fs";
 import { performance } from "perf_hooks";
-import { ICompletionModel } from "./completionModel";
+import { ICompletionModel, ICompletionResult } from "./completionModel";
 import { trimCompletion } from "./syntax";
 
 const defaultPostOptions = {
@@ -130,16 +130,16 @@ export class Codex implements ICompletionModel {
   public async completions(
     prompt: string,
     temperature: number
-  ): Promise<Set<string>> {
+  ): Promise<ICompletionResult> {
     try {
       let result = new Set<string>();
       for (const completion of await this.query(prompt, { temperature })) {
         result.add(trimCompletion(completion));
       }
-      return result;
+      return { completions: result };
     } catch (err: any) {
       console.warn(`Failed to get completions: ${err.message}`);
-      return new Set<string>();
+      return { completions: new Set<string>() };
     }
   }
 }

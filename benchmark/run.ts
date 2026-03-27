@@ -20,9 +20,11 @@ import { PerformanceMeasurer } from "./performanceMeasurer";
 import { TestResultCollector } from "./testResultCollector";
 import {
   BenchmarkRateLimiter,
+  CompositeRateLimiter,
   FixedRateLimiter,
   IRateLimiter,
   NoRateLimiter,
+  TokenRateLimiter,
 } from "../src/promise-utils";
 /**
  * Run an end-to-end experiment.
@@ -142,6 +144,12 @@ if (require.main === module) {
           default: 5,
           description: "number of completions to generate for each prompt",
         },
+        tokensPerMinute: {
+          type: "number",
+          demandOption: false,
+          description:
+            "maximum estimated provider tokens per minute across prompts",
+        },
         strictResponses: {
           type: "boolean",
           default: true,
@@ -171,6 +179,12 @@ if (require.main === module) {
           default: 3,
           description: "number of attempts to make for each request",
         },
+        failOnProviderError: {
+          type: "boolean",
+          default: true,
+          description:
+            "whether to abort the run if the provider keeps failing after retries",
+        },
         rateLimit: {
           type: "string",
           default: "",
@@ -188,23 +202,45 @@ if (require.main === module) {
         );
       }
 
-      let rateLimiter: IRateLimiter;
+      const rateLimiters: IRateLimiter[] = [];
       if (argv.rateLimit === "benchmark") {
-        rateLimiter = new BenchmarkRateLimiter();
+        rateLimiters.push(new BenchmarkRateLimiter());
       } else if (argv.rateLimit) {
         const rateLimit: number = parseInt(argv.rateLimit, 10);
         if (!Number.isNaN(rateLimit)) {
-          rateLimiter = new FixedRateLimiter(+argv.rateLimit);
+          rateLimiters.push(new FixedRateLimiter(+argv.rateLimit));
         } else {
           throw new Error(`Invalid rate limit: ${argv.rateLimit}`);
         }
-      } else {
-        rateLimiter = new NoRateLimiter();
+      }
+      if (argv.tokensPerMinute !== undefined) {
+        if (!(argv.tokensPerMinute > 0)) {
+          throw new Error(
+            `Invalid value for --tokensPerMinute: ${argv.tokensPerMinute}`
+          );
+        }
+        rateLimiters.push(new TokenRateLimiter(argv.tokensPerMinute));
       }
 
-      model = new ChatModel(argv.model, argv.nrAttempts, rateLimiter, {
-        max_tokens: argv.maxTokens,
-      });
+      let rateLimiter: IRateLimiter;
+      if (rateLimiters.length === 0) {
+        rateLimiter = new NoRateLimiter();
+      } else if (rateLimiters.length === 1) {
+        rateLimiter = rateLimiters[0];
+      } else {
+        rateLimiter = new CompositeRateLimiter(rateLimiters);
+      }
+
+      model = new ChatModel(
+        argv.model,
+        argv.nrAttempts,
+        rateLimiter,
+        {
+          max_tokens: argv.maxTokens,
+          n: argv.numCompletions,
+        },
+        argv.failOnProviderError
+      );
     } else {
       model = MockCompletionModel.fromFile(
         argv.responses,

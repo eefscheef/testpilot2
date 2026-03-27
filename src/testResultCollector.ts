@@ -1,6 +1,7 @@
+import { ITokenUsage } from "./completionModel";
 import { emptyCoverageSummary, ICoverageSummary } from "./coverage";
 import { Prompt } from "./promptCrafting";
-import { ITestInfo, TestOutcome } from "./report";
+import { ITestInfo, ITokenUsageSummary, TestOutcome } from "./report";
 
 export interface IPromptInfo {
   /** The prompt. */
@@ -13,6 +14,8 @@ export interface IPromptInfo {
   temperature: number;
   /** The set of completions obtained for this prompt. */
   completions: Set<string>;
+  /** Token usage reported by the provider for this prompt, if any. */
+  usage?: ITokenUsage;
 }
 
 export interface ITestResultCollector {
@@ -46,7 +49,8 @@ export interface ITestResultCollector {
   recordPromptInfo(
     prompt: Prompt,
     temperature: number,
-    completions: Set<string>
+    completions: Set<string>,
+    usage?: ITokenUsage
   ): void;
 
   /**
@@ -100,11 +104,19 @@ class BaseTestResultCollector implements ITestResultCollector {
   public recordPromptInfo(
     prompt: Prompt,
     temperature: number,
-    completions: Set<string>
+    completions: Set<string>,
+    usage?: ITokenUsage
   ) {
     const id = this.prompts.size;
     const file = `prompt_${id}.js`;
-    this.prompts.set(prompt, { prompt, id, file, temperature, completions });
+    this.prompts.set(prompt, {
+      prompt,
+      id,
+      file,
+      temperature,
+      completions,
+      usage,
+    });
   }
 
   public recordCoverageInfo(coverageSummary: ICoverageSummary) {
@@ -117,5 +129,52 @@ class BaseTestResultCollector implements ITestResultCollector {
 
   public getTestInfos(): ITestInfo[] {
     return Array.from(this.tests.values());
+  }
+
+  protected getTokenUsageSummary(): ITokenUsageSummary | undefined {
+    let promptsWithUsage = 0;
+    let promptsWithoutUsage = 0;
+    const summary: ITokenUsageSummary = {
+      promptsWithUsage: 0,
+      promptsWithoutUsage: 0,
+    };
+    const addIfDefined = (
+      key: keyof Pick<
+        ITokenUsageSummary,
+        | "inputTokens"
+        | "outputTokens"
+        | "totalTokens"
+        | "reasoningTokens"
+        | "cachedInputTokens"
+      >,
+      value: number | undefined
+    ) => {
+      if (value === undefined) {
+        return;
+      }
+      summary[key] = (summary[key] ?? 0) + value;
+    };
+
+    for (const promptInfo of this.prompts.values()) {
+      if (!promptInfo.usage) {
+        promptsWithoutUsage++;
+        continue;
+      }
+
+      promptsWithUsage++;
+      addIfDefined("inputTokens", promptInfo.usage.inputTokens);
+      addIfDefined("outputTokens", promptInfo.usage.outputTokens);
+      addIfDefined("totalTokens", promptInfo.usage.totalTokens);
+      addIfDefined("reasoningTokens", promptInfo.usage.reasoningTokens);
+      addIfDefined("cachedInputTokens", promptInfo.usage.cachedInputTokens);
+    }
+
+    if (promptsWithUsage === 0 && promptsWithoutUsage === 0) {
+      return undefined;
+    }
+
+    summary.promptsWithUsage = promptsWithUsage;
+    summary.promptsWithoutUsage = promptsWithoutUsage;
+    return summary;
   }
 }

@@ -1,30 +1,38 @@
 import axios from "axios";
 import { performance } from "perf_hooks";
-import { ICompletionModel } from "./completionModel";
 import {
-  retry,
-  RateLimiter,
-  BenchmarkRateLimiter,
-  FixedRateLimiter,
-  IRateLimiter,
-} from "./promise-utils";
+  ICompletionModel,
+  ICompletionResult,
+  ITokenUsage,
+} from "./completionModel";
+import { retry, IRateLimiter } from "./promise-utils";
 
 const defaultPostOptions = {
   max_tokens: 1000, // maximum number of tokens to return
   temperature: 0, // sampling temperature; higher values increase diversity
   top_p: 1, // no need to change this
 };
-export type PostOptions = Partial<typeof defaultPostOptions>;
+export interface PostOptions {
+  max_tokens?: number;
+  max_completion_tokens?: number;
+  max_output_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  n?: number;
+  [key: string]: any;
+}
 
 type ChatCompletionsRequest = {
   model: string;
   stream?: boolean;
   messages: { role: string; content: string }[];
   max_tokens?: number;
+  max_completion_tokens?: number;
   // Gemini OpenAI-compat endpoint tends to honor this name.
   max_output_tokens?: number;
   temperature?: number;
   top_p?: number;
+  n?: number;
   [key: string]: any;
 };
 
@@ -43,6 +51,18 @@ function getEnv(name: string): string {
 export class ChatModel implements ICompletionModel {
   private readonly apiEndpoint: string;
   private readonly authHeaders: string;
+  private static readonly SYSTEM_PROMPT = "You are a programming assistant.";
+  private static readonly RETRYABLE_STATUS_CODES = new Set([
+    408, 409, 429, 500, 502, 503, 504, 529,
+  ]);
+  private static readonly RETRYABLE_ERROR_CODES = new Set([
+    "ECONNABORTED",
+    "ECONNRESET",
+    "EAI_AGAIN",
+    "ENETDOWN",
+    "ENETUNREACH",
+    "ETIMEDOUT",
+  ]);
 
   private static extractChoiceText(choice: any): string | undefined {
     const content =
@@ -80,11 +100,162 @@ export class ChatModel implements ICompletionModel {
     return undefined;
   }
 
+  private static extractUsage(json: any): ITokenUsage | undefined {
+    const usage = json?.usage;
+    const usageMetadata = json?.usageMetadata;
+    if (!usage && !usageMetadata) {
+      return undefined;
+    }
+
+    const normalized: ITokenUsage = {
+      inputTokens:
+        usage?.prompt_tokens ??
+        usageMetadata?.promptTokenCount ??
+        usageMetadata?.prompt_token_count,
+      outputTokens:
+        usage?.completion_tokens ??
+        usageMetadata?.candidatesTokenCount ??
+        usageMetadata?.completionTokenCount ??
+        usageMetadata?.completion_token_count,
+      totalTokens:
+        usage?.total_tokens ??
+        usageMetadata?.totalTokenCount ??
+        usageMetadata?.total_token_count,
+      reasoningTokens:
+        usage?.completion_tokens_details?.reasoning_tokens ??
+        usage?.output_tokens_details?.reasoning_tokens ??
+        usageMetadata?.thoughtsTokenCount ??
+        usageMetadata?.reasoningTokenCount,
+      cachedInputTokens:
+        usage?.prompt_tokens_details?.cached_tokens ??
+        usageMetadata?.cachedContentTokenCount ??
+        usageMetadata?.cachedPromptTokenCount,
+    };
+
+    if (Object.values(normalized).every((value) => value === undefined)) {
+      return undefined;
+    }
+    return normalized;
+  }
+
+  private static shouldUseMaxCompletionTokens(model: string) {
+    return /^(gpt-5|o1|o3|o4)/i.test(model);
+  }
+
+  private static applyProviderOptionAliases(
+    model: string,
+    options: PostOptions
+  ): PostOptions {
+    const aliasedOptions = { ...options };
+    const maxTokenBudget = aliasedOptions.max_tokens;
+    if (
+      maxTokenBudget !== undefined &&
+      aliasedOptions.max_completion_tokens === undefined &&
+      ChatModel.shouldUseMaxCompletionTokens(model)
+    ) {
+      aliasedOptions.max_completion_tokens = maxTokenBudget;
+      delete aliasedOptions.max_tokens;
+    }
+    if (
+      maxTokenBudget !== undefined &&
+      aliasedOptions.max_output_tokens === undefined &&
+      /gemini/i.test(model)
+    ) {
+      aliasedOptions.max_output_tokens = maxTokenBudget;
+    }
+    return aliasedOptions;
+  }
+
+  private static estimateTokenBudget(prompt: string, options: PostOptions) {
+    const outputBudgetPerChoice =
+      options.max_completion_tokens ??
+      options.max_output_tokens ??
+      options.max_tokens ??
+      defaultPostOptions.max_tokens;
+    const outputBudget = outputBudgetPerChoice * Math.max(1, options.n ?? 1);
+    // Use a conservative character heuristic; this is only used for pacing.
+    const inputTokens = Math.ceil(
+      (prompt.length + ChatModel.SYSTEM_PROMPT.length + 32) / 3
+    );
+    return inputTokens + outputBudget;
+  }
+
+  private static getRetryAfterDelayMs(error: unknown): number | undefined {
+    if (!axios.isAxiosError(error)) {
+      return undefined;
+    }
+
+    const retryAfterHeader =
+      error.response?.headers?.["retry-after"] ??
+      error.response?.headers?.["Retry-After"];
+    if (!retryAfterHeader) {
+      return undefined;
+    }
+
+    const retryAfter = Array.isArray(retryAfterHeader)
+      ? retryAfterHeader[0]
+      : retryAfterHeader;
+    if (typeof retryAfter !== "string" && typeof retryAfter !== "number") {
+      return undefined;
+    }
+
+    const retrySeconds = Number(retryAfter);
+    if (Number.isFinite(retrySeconds)) {
+      return Math.max(0, retrySeconds * 1000);
+    }
+
+    const retryDate = Date.parse(String(retryAfter));
+    if (Number.isNaN(retryDate)) {
+      return undefined;
+    }
+    return Math.max(0, retryDate - Date.now());
+  }
+
+  private static shouldRetryRequest(error: unknown): boolean {
+    if (!axios.isAxiosError(error)) {
+      return true;
+    }
+    if (!error.response) {
+      return (
+        !error.code || ChatModel.RETRYABLE_ERROR_CODES.has(String(error.code))
+      );
+    }
+    return ChatModel.RETRYABLE_STATUS_CODES.has(error.response.status);
+  }
+
+  private static getRetryDelayMs(error: unknown, attempt: number): number {
+    const retryAfterMs = ChatModel.getRetryAfterDelayMs(error);
+    if (retryAfterMs !== undefined) {
+      return retryAfterMs;
+    }
+
+    const baseDelayMs = Math.min(30000, 1000 * Math.pow(2, attempt - 1));
+    const jitterMs = Math.floor(Math.random() * 250);
+    return baseDelayMs + jitterMs;
+  }
+
+  private static formatError(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      const statusText = error.response?.statusText;
+      const data = error.response?.data;
+      const dataSnippet =
+        typeof data === "string"
+          ? data.slice(0, 2000)
+          : JSON.stringify(data)?.slice(0, 2000);
+      return `HTTP ${status ?? "?"} ${statusText ?? ""}${
+        dataSnippet ? `; body: ${dataSnippet}` : ""
+      }`;
+    }
+    return (error as any)?.message ?? String(error);
+  }
+
   constructor(
     private readonly model: string,
     private readonly nrAttempts: number,
     private readonly rateLimiter: IRateLimiter,
-    private readonly instanceOptions: PostOptions = {}
+    private readonly instanceOptions: PostOptions = {},
+    private readonly failOnError = false
   ) {
     this.apiEndpoint = getEnv("TESTPILOT_LLM_API_ENDPOINT");
     this.authHeaders = getEnv("TESTPILOT_LLM_AUTH_HEADERS");
@@ -106,19 +277,19 @@ export class ChatModel implements ICompletionModel {
   public async query(
     prompt: string,
     requestPostOptions: PostOptions = {}
-  ): Promise<Set<string>> {
+  ): Promise<ICompletionResult> {
     const headers = {
       "Content-Type": "application/json",
       ...JSON.parse(this.authHeaders),
     };
 
-    const options = {
+    const options = ChatModel.applyProviderOptionAliases(this.model, {
       ...defaultPostOptions,
       // options provided to constructor override default options
       ...this.instanceOptions,
       // options provided to this function override default and instance options
       ...requestPostOptions,
-    };
+    });
 
     performance.mark("llm-query-start");
 
@@ -130,7 +301,7 @@ export class ChatModel implements ICompletionModel {
       messages: [
         {
           role: "system",
-          content: "You are a programming assistant.",
+          content: ChatModel.SYSTEM_PROMPT,
         },
         {
           role: "user",
@@ -142,10 +313,17 @@ export class ChatModel implements ICompletionModel {
 
     const res = await retry(
       () =>
-        this.rateLimiter!.next(() =>
-          axios.post(this.apiEndpoint, postOptions, { headers })
+        this.rateLimiter.next(
+          () => axios.post(this.apiEndpoint, postOptions, { headers }),
+          {
+            estimatedTokens: ChatModel.estimateTokenBudget(prompt, options),
+          }
         ),
-      this.nrAttempts
+      this.nrAttempts,
+      {
+        shouldRetry: ChatModel.shouldRetryRequest,
+        getDelayMs: ChatModel.getRetryDelayMs,
+      }
     );
 
     performance.measure(
@@ -166,7 +344,9 @@ export class ChatModel implements ICompletionModel {
 
     const json = res.data;
     if (json.error) {
-      throw new Error(json.error);
+      throw new Error(
+        typeof json.error === "string" ? json.error : JSON.stringify(json.error)
+      );
     }
 
     if (!Array.isArray(json.choices)) {
@@ -195,7 +375,10 @@ export class ChatModel implements ICompletionModel {
         `Warning: skipped ${skipped} LLM choice(s) with no text content. Example: ${snippet}`
       );
     }
-    return completions;
+    return {
+      completions,
+      usage: ChatModel.extractUsage(json),
+    };
   }
 
   /**
@@ -206,33 +389,24 @@ export class ChatModel implements ICompletionModel {
   public async completions(
     prompt: string,
     temperature: number
-  ): Promise<Set<string>> {
+  ): Promise<ICompletionResult> {
     try {
+      const queryResult = await this.query(prompt, { temperature });
       let result = new Set<string>();
-      for (const completion of await this.query(prompt, { temperature })) {
+      for (const completion of queryResult.completions) {
         result.add(completion);
       }
-      return result;
+      return {
+        completions: result,
+        usage: queryResult.usage,
+      };
     } catch (err: any) {
-      if (axios.isAxiosError(err)) {
-        const status = err.response?.status;
-        const statusText = err.response?.statusText;
-        const data = err.response?.data;
-        const dataSnippet =
-          typeof data === "string"
-            ? data.slice(0, 2000)
-            : JSON.stringify(data)?.slice(0, 2000);
-        console.warn(
-          `Failed to get completions: HTTP ${status ?? "?"} ${
-            statusText ?? ""
-          }${dataSnippet ? `; body: ${dataSnippet}` : ""}`
-        );
-      } else {
-        console.warn(
-          `Failed to get completions: ${err?.message ?? String(err)}`
-        );
+      const formattedError = ChatModel.formatError(err);
+      if (this.failOnError) {
+        throw new Error(`Failed to get completions: ${formattedError}`);
       }
-      return new Set<string>();
+      console.warn(`Failed to get completions: ${formattedError}`);
+      return { completions: new Set<string>() };
     }
   }
 }

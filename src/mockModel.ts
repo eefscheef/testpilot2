@@ -1,9 +1,13 @@
 import path from "path";
-import { ICompletionModel } from "./completionModel";
+import {
+  ICompletionModel,
+  ICompletionResult,
+  ITokenUsage,
+} from "./completionModel";
 import { readFileSync } from "fs";
 
 export class MockCompletionModel implements ICompletionModel {
-  private completionMap: Map<string, string[]> = new Map();
+  private completionMap: Map<string, ICompletionResult> = new Map();
 
   constructor(private strictResponses: boolean) {}
 
@@ -11,12 +15,17 @@ export class MockCompletionModel implements ICompletionModel {
     const data = JSON.parse(readFileSync(file, "utf8"));
     console.log("Loading completions from file");
     const model = new MockCompletionModel(strictResponses);
-    for (const { file: promptFile, temperature, completions } of data.prompts) {
+    for (const {
+      file: promptFile,
+      temperature,
+      completions,
+      usage,
+    } of data.prompts) {
       const prompt = readFileSync(
         path.join(path.dirname(file), "prompts", promptFile),
         "utf8"
       );
-      model.addCompletions(prompt, temperature, completions);
+      model.addCompletions(prompt, temperature, completions, usage);
     }
     return model;
   }
@@ -28,24 +37,34 @@ export class MockCompletionModel implements ICompletionModel {
   public addCompletions(
     prompt: string,
     temperature: number,
-    completions: string[]
+    completions: string[],
+    usage?: ITokenUsage
   ) {
-    this.completionMap.set(this.key(prompt, temperature), completions);
+    this.completionMap.set(this.key(prompt, temperature), {
+      completions: new Set(completions),
+      usage,
+    });
   }
 
   public async completions(
     prompt: string,
     temperature: number
-  ): Promise<Set<string>> {
-    const completions = this.completionMap.get(this.key(prompt, temperature));
-    if (!completions) {
+  ): Promise<ICompletionResult> {
+    const completionResult = this.completionMap.get(
+      this.key(prompt, temperature)
+    );
+    if (!completionResult) {
       const err = `Prompt not found at temperature ${temperature}: ${prompt}`;
       if (this.strictResponses) {
         throw new Error(err);
       } else {
         console.warn(err);
       }
+      return { completions: new Set() };
     }
-    return new Set(completions);
+    return {
+      completions: new Set(completionResult.completions),
+      usage: completionResult.usage,
+    };
   }
 }

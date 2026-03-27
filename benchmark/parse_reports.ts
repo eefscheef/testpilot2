@@ -46,6 +46,18 @@ export type FailureStats = {
   };
 };
 
+export type TokenUsageStats = {
+  [packageName: string]: {
+    proj: string;
+    inputTokens: number | "--";
+    outputTokens: number | "--";
+    reasoningTokens: number | "--";
+    totalTokens: number | "--";
+    promptsWithUsage: number;
+    promptsWithoutUsage: number;
+  };
+};
+
 export type PackageStats = {
   [packageName: string]: {
     proj: string;
@@ -203,6 +215,7 @@ export function parseReports(
   const refinersStats: RefinerStats = { refinerNames: new Set(), stats: {} };
   const performanceStats: any = {};
   const similarityStats: any = {};
+  const tokenUsageStats: TokenUsageStats = {};
 
   for (const proj of fs.readdirSync(root)) {
     if (proj === ".DS_Store") {
@@ -235,6 +248,7 @@ export function parseReports(
     const snippetExtractionTime = data.stats?.snippetExtractionTime ?? -1;
     const codexQueryTime = data.stats?.codexQueryTime ?? -1;
     const totalTime = data.stats?.totalTime ?? -1;
+    const tokenUsage = data.tokenUsage;
     var numExistingTests = -1;
 
     let numUniquelyCoveringTests = null;
@@ -307,6 +321,16 @@ export function parseReports(
       ...apiStats,
     };
 
+    tokenUsageStats[packageName] = {
+      proj,
+      inputTokens: tokenUsage?.inputTokens ?? "--",
+      outputTokens: tokenUsage?.outputTokens ?? "--",
+      reasoningTokens: tokenUsage?.reasoningTokens ?? "--",
+      totalTokens: tokenUsage?.totalTokens ?? "--",
+      promptsWithUsage: tokenUsage?.promptsWithUsage ?? 0,
+      promptsWithoutUsage: tokenUsage?.promptsWithoutUsage ?? 0,
+    };
+
     const similarityStatsReport = path.join(projDir, "similarityReport.json");
     if (fs.existsSync(similarityStatsReport)) {
       const similarityReport = JSON.parse(
@@ -330,6 +354,7 @@ export function parseReports(
     packageStats,
     performanceStats,
     similarityStats,
+    tokenUsageStats,
   };
 }
 

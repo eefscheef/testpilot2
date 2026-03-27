@@ -1,5 +1,6 @@
 import { ICoverageSummary } from "./coverage";
 import { Prompt } from "./promptCrafting";
+import { ITokenUsage } from "./completionModel";
 
 export enum TestStatus {
   PASSED = "PASSED",
@@ -69,6 +70,13 @@ export interface IMetaData {
   numCompletions: number;
 }
 
+export interface ITokenUsageSummary extends ITokenUsage {
+  /** Number of prompts for which the provider reported usage. */
+  promptsWithUsage: number;
+  /** Number of prompts for which the provider did not report usage. */
+  promptsWithoutUsage: number;
+}
+
 export type ReportForTest = {
   /** name of the test */
   testName: string;
@@ -124,4 +132,5 @@ export interface ITestReport {
   };
   tests: ReportForTest[];
   coverage: ICoverageSummary;
+  tokenUsage?: ITokenUsageSummary;
 }
