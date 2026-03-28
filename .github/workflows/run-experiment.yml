@@ -18,6 +18,9 @@ on:
       maxTokens:
         description: "Maximum number of tokens in each completion"
         default: "4096"
+      reasoningEffort:
+        description: 'Optional provider reasoning effort, e.g. "minimal", "low", "medium", or "high"'
+        default: ""
       maxTokensPerMinute:
         description: "Max estimated provider tokens per minute (empty disables token pacing)"
         default: ""
@@ -68,6 +71,7 @@ jobs:
       snippetsFrom: "${{ github.event.inputs.snippetsFrom || 'doc' }}"
       snippetLength: "${{ github.event.inputs.snippetLength || '20' }}"
       maxTokens: "${{ github.event.inputs.maxTokens || '1000' }}"
+      reasoningEffort: "${{ github.event.inputs.reasoningEffort || '' }}"
       temperatures: "${{ github.event.inputs.temperatures || '0.0' }}"
       numSnippets: "${{ github.event.inputs.numSnippets || 'all' }}"
       model: "${{ github.event.inputs.model || 'gemini-3-pro-preview' }}"
@@ -228,7 +232,12 @@ jobs:
             token_limit_args=(--tokensPerMinute "$tpm")
           fi
 
-          echo "command: node benchmark/run.js --outputDir $outputdir --package $TESTPILOT_PACKAGE_PATH --temperatures '${{ needs.setup.outputs.temperatures }}' --model ${{ needs.setup.outputs.model }} --maxTokens ${{ needs.setup.outputs.maxTokens }} --snippets ${{ needs.setup.outputs.snippetsFrom }} --numSnippets ${{ needs.setup.outputs.numSnippets }} --snippetLength ${{ needs.setup.outputs.snippetLength }} --template ${{ needs.setup.outputs.template }} --retryTemplate ${{ needs.setup.outputs.retryTemplate }} --failOnProviderError ${{ github.event.inputs.failOnProviderError }} ${rate_limit_args[*]} ${token_limit_args[*]}"
+          reasoning_args=()
+          if [ -n "${{ needs.setup.outputs.reasoningEffort }}" ]; then
+            reasoning_args=(--reasoningEffort "${{ needs.setup.outputs.reasoningEffort }}")
+          fi
+
+          echo "command: node benchmark/run.js --outputDir $outputdir --package $TESTPILOT_PACKAGE_PATH --temperatures '${{ needs.setup.outputs.temperatures }}' --model ${{ needs.setup.outputs.model }} --maxTokens ${{ needs.setup.outputs.maxTokens }} --snippets ${{ needs.setup.outputs.snippetsFrom }} --numSnippets ${{ needs.setup.outputs.numSnippets }} --snippetLength ${{ needs.setup.outputs.snippetLength }} --template ${{ needs.setup.outputs.template }} --retryTemplate ${{ needs.setup.outputs.retryTemplate }} --failOnProviderError ${{ github.event.inputs.failOnProviderError }} ${rate_limit_args[*]} ${token_limit_args[*]} ${reasoning_args[*]}"
 
           node benchmark/run.js \
             --outputDir "$outputdir" \
@@ -242,6 +251,7 @@ jobs:
             --template "${{ needs.setup.outputs.template }}" \
             --retryTemplate "${{ needs.setup.outputs.retryTemplate }}" \
             --failOnProviderError "${{ github.event.inputs.failOnProviderError }}" \
+            "${reasoning_args[@]}" \
             "${token_limit_args[@]}" \
             "${rate_limit_args[@]}"
           mv stats.json $outputdir

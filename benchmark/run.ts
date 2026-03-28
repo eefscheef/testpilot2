@@ -133,6 +133,12 @@ if (require.main === module) {
           demandOption: false,
           description: "maximum number of tokens in a completion",
         },
+        reasoningEffort: {
+          type: "string",
+          demandOption: false,
+          description:
+            'provider reasoning effort, e.g. "minimal", "low", "medium", or "high"',
+        },
         temperatures: {
           type: "string",
           default: "0.0",
@@ -193,6 +199,29 @@ if (require.main === module) {
         },
       });
     const argv = await parser.argv;
+    const allowedReasoningEfforts = new Set([
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+    ]);
+    if (
+      argv.reasoningEffort !== undefined &&
+      !allowedReasoningEfforts.has(argv.reasoningEffort)
+    ) {
+      throw new Error(
+        `Invalid value for --reasoningEffort: ${argv.reasoningEffort}`
+      );
+    }
+    if (
+      argv.reasoningEffort === "none" &&
+      /^gemini-(?:2\.5-pro|3)/i.test(argv.model)
+    ) {
+      throw new Error(
+        `Model ${argv.model} does not support reasoningEffort=none; use minimal for the lowest Gemini 3 / Gemini 2.5 Pro setting`
+      );
+    }
 
     var model: ICompletionModel;
     if (!argv.responses) {
@@ -238,6 +267,9 @@ if (require.main === module) {
         {
           max_tokens: argv.maxTokens,
           n: argv.numCompletions,
+          ...(argv.reasoningEffort
+            ? { reasoning_effort: argv.reasoningEffort }
+            : {}),
         },
         argv.failOnProviderError
       );

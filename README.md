@@ -107,6 +107,9 @@ The workflow accepts optional provider-specific inputs:
   repository secret.
 - `llmAuthHeadersSecretName`: choose which secret contains the JSON auth headers
   for the selected provider.
+- `reasoningEffort`: pass provider reasoning effort through to the chat API.
+  For Gemini's OpenAI-compatible endpoint, useful values are `minimal`, `low`,
+  `medium`, and `high`.
 - `maxRequestsPerMinute`: fixed request pacing.
 - `maxTokensPerMinute`: estimated token pacing based on prompt size and
   completion budget. This is useful for token-based quotas such as Azure TPM

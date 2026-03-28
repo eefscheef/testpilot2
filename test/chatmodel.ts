@@ -29,4 +29,16 @@ describe("ChatModel provider option aliases", () => {
       temperature: 0,
     });
   });
+
+  it("should preserve reasoning_effort when applying provider aliases", () => {
+    expect(
+      applyProviderOptionAliases("gemini-3-pro-preview", {
+        max_tokens: 4096,
+        reasoning_effort: "minimal",
+      })
+    ).to.deep.equal({
+      max_tokens: 4096,
+      reasoning_effort: "minimal",
+    });
+  });
 });
