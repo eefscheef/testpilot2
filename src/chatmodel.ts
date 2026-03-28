@@ -50,7 +50,8 @@ function getEnv(name: string): string {
 export class ChatModel implements ICompletionModel {
   private readonly apiEndpoint: string;
   private readonly authHeaders: string;
-  private static readonly SYSTEM_PROMPT = "You are a programming assistant.";
+  private static readonly SYSTEM_PROMPT =
+    "You are a programming assistant. Return only the requested JavaScript test code, with no explanation or surrounding prose.";
   private static readonly RETRYABLE_STATUS_CODES = new Set([
     408, 409, 429, 500, 502, 503, 504, 529,
   ]);
