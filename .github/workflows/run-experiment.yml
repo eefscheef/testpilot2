@@ -17,7 +17,7 @@ on:
         default: "20"
       maxTokens:
         description: "Maximum number of tokens in each completion"
-        default: "10000"
+        default: "1024"
       reasoningEffort:
         description: 'Optional provider reasoning effort, e.g. "none", "minimal", "low", "medium", or "high"'
         default: "none"
