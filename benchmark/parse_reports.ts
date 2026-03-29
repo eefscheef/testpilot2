@@ -51,6 +51,7 @@ export type TokenUsageStats = {
     proj: string;
     inputTokens: number | "--";
     outputTokens: number | "--";
+    visibleOutputTokens: number | "--";
     reasoningTokens: number | "--";
     totalTokens: number | "--";
     promptsWithUsage: number;
@@ -325,6 +326,7 @@ export function parseReports(
       proj,
       inputTokens: tokenUsage?.inputTokens ?? "--",
       outputTokens: tokenUsage?.outputTokens ?? "--",
+      visibleOutputTokens: tokenUsage?.visibleOutputTokens ?? "--",
       reasoningTokens: tokenUsage?.reasoningTokens ?? "--",
       totalTokens: tokenUsage?.totalTokens ?? "--",
       promptsWithUsage: tokenUsage?.promptsWithUsage ?? 0,

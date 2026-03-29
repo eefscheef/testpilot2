@@ -127,6 +127,7 @@ function printTokenUsageReport(title: string, stats: TokenUsageStats) {
     (entry) =>
       entry.inputTokens !== "--" ||
       entry.outputTokens !== "--" ||
+      entry.visibleOutputTokens !== "--" ||
       entry.reasoningTokens !== "--" ||
       entry.totalTokens !== "--"
   );
@@ -136,12 +137,12 @@ function printTokenUsageReport(title: string, stats: TokenUsageStats) {
 
   console.log(`
 # ${title}
-Project | Input tokens | Output tokens | Reasoning tokens | Total tokens | Prompts with usage | Prompts without usage
---- | --: | --: | --: | --: | --: | --:`);
+Project | Input tokens | Output tokens | Visible output tokens | Reasoning tokens | Total tokens | Prompts with usage | Prompts without usage
+--- | --: | --: | --: | --: | --: | --: | --:`);
 
   for (const entry of Object.values(stats)) {
     console.log(
-      `${entry.proj} | ${entry.inputTokens} | ${entry.outputTokens} | ${entry.reasoningTokens} | ${entry.totalTokens} | ${entry.promptsWithUsage} | ${entry.promptsWithoutUsage}`
+      `${entry.proj} | ${entry.inputTokens} | ${entry.outputTokens} | ${entry.visibleOutputTokens} | ${entry.reasoningTokens} | ${entry.totalTokens} | ${entry.promptsWithUsage} | ${entry.promptsWithoutUsage}`
     );
   }
 }

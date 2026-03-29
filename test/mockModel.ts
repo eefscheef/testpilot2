@@ -50,9 +50,12 @@ describe("test MockCompletionModel", () => {
                 usage: {
                   inputTokens: 11,
                   outputTokens: 7,
+                  visibleOutputTokens: 4,
                   totalTokens: 18,
                   reasoningTokens: 3,
                 },
+                rawChoiceCount: 2,
+                finishReasons: ["stop", "length"],
               },
             ],
           },
@@ -70,9 +73,12 @@ describe("test MockCompletionModel", () => {
         usage: {
           inputTokens: 11,
           outputTokens: 7,
+          visibleOutputTokens: 4,
           totalTokens: 18,
           reasoningTokens: 3,
         },
+        rawChoiceCount: 2,
+        finishReasons: ["stop", "length"],
       });
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });

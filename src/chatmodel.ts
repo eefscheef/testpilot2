@@ -100,6 +100,13 @@ export class ChatModel implements ICompletionModel {
     return undefined;
   }
 
+  private static extractFinishReason(choice: any): string {
+    const finishReason = choice?.finish_reason ?? choice?.finishReason;
+    return typeof finishReason === "string" && finishReason.length > 0
+      ? finishReason
+      : "unknown";
+  }
+
   private static extractUsage(json: any): ITokenUsage | undefined {
     const usage = json?.usage;
     const usageMetadata = json?.usageMetadata;
@@ -107,25 +114,32 @@ export class ChatModel implements ICompletionModel {
       return undefined;
     }
 
+    const outputTokens =
+      usage?.completion_tokens ??
+      usageMetadata?.candidatesTokenCount ??
+      usageMetadata?.completionTokenCount ??
+      usageMetadata?.completion_token_count;
+    const reasoningTokens =
+      usage?.completion_tokens_details?.reasoning_tokens ??
+      usage?.output_tokens_details?.reasoning_tokens ??
+      usageMetadata?.thoughtsTokenCount ??
+      usageMetadata?.reasoningTokenCount;
+
     const normalized: ITokenUsage = {
       inputTokens:
         usage?.prompt_tokens ??
         usageMetadata?.promptTokenCount ??
         usageMetadata?.prompt_token_count,
-      outputTokens:
-        usage?.completion_tokens ??
-        usageMetadata?.candidatesTokenCount ??
-        usageMetadata?.completionTokenCount ??
-        usageMetadata?.completion_token_count,
+      outputTokens,
+      visibleOutputTokens:
+        outputTokens !== undefined && reasoningTokens !== undefined
+          ? Math.max(0, outputTokens - reasoningTokens)
+          : undefined,
       totalTokens:
         usage?.total_tokens ??
         usageMetadata?.totalTokenCount ??
         usageMetadata?.total_token_count,
-      reasoningTokens:
-        usage?.completion_tokens_details?.reasoning_tokens ??
-        usage?.output_tokens_details?.reasoning_tokens ??
-        usageMetadata?.thoughtsTokenCount ??
-        usageMetadata?.reasoningTokenCount,
+      reasoningTokens,
       cachedInputTokens:
         usage?.prompt_tokens_details?.cached_tokens ??
         usageMetadata?.cachedContentTokenCount ??
@@ -349,8 +363,10 @@ export class ChatModel implements ICompletionModel {
     }
 
     const completions = new Set<string>();
+    const finishReasons: string[] = [];
     let skipped = 0;
     for (const choice of json.choices) {
+      finishReasons.push(ChatModel.extractFinishReason(choice));
       const text = ChatModel.extractChoiceText(choice);
       if (typeof text !== "string") {
         skipped++;
@@ -371,6 +387,8 @@ export class ChatModel implements ICompletionModel {
     return {
       completions,
       usage: ChatModel.extractUsage(json),
+      rawChoiceCount: json.choices.length,
+      finishReasons,
     };
   }
 
@@ -392,6 +410,8 @@ export class ChatModel implements ICompletionModel {
       return {
         completions: result,
         usage: queryResult.usage,
+        rawChoiceCount: queryResult.rawChoiceCount,
+        finishReasons: queryResult.finishReasons,
       };
     } catch (err: any) {
       const formattedError = ChatModel.formatError(err);

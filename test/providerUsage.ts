@@ -44,9 +44,10 @@ describe("provider usage artifacts", () => {
       collector.recordPromptInfo(prompt, 0, new Set(["completion one"]), {
         inputTokens: 100,
         outputTokens: 25,
+        visibleOutputTokens: 20,
         totalTokens: 125,
         reasoningTokens: 5,
-      });
+      }, 3, ["stop", "length", "stop"]);
       collector.recordPromptInfo(
         promptWithSnippets,
         0,
@@ -72,9 +73,16 @@ describe("provider usage artifacts", () => {
       expect(promptsJson.prompts[0].usage).to.deep.equal({
         inputTokens: 100,
         outputTokens: 25,
+        visibleOutputTokens: 20,
         totalTokens: 125,
         reasoningTokens: 5,
       });
+      expect(promptsJson.prompts[0].rawChoiceCount).to.equal(3);
+      expect(promptsJson.prompts[0].finishReasons).to.deep.equal([
+        "stop",
+        "length",
+        "stop",
+      ]);
       expect(promptsJson.prompts[1]).to.not.have.property("usage");
 
       const reportJson = JSON.parse(
@@ -83,6 +91,7 @@ describe("provider usage artifacts", () => {
       expect(reportJson.tokenUsage).to.deep.equal({
         inputTokens: 100,
         outputTokens: 25,
+        visibleOutputTokens: 20,
         totalTokens: 125,
         reasoningTokens: 5,
         promptsWithUsage: 1,

@@ -6,6 +6,14 @@ describe("ChatModel provider option aliases", () => {
     return (ChatModel as any).applyProviderOptionAliases(model, options);
   }
 
+  function extractUsage(payload: object) {
+    return (ChatModel as any).extractUsage(payload);
+  }
+
+  function extractFinishReason(choice: object) {
+    return (ChatModel as any).extractFinishReason(choice);
+  }
+
   it("should keep max_tokens for Gemini OpenAI-compatible models", () => {
     expect(
       applyProviderOptionAliases("gemini-3-pro-preview", {
@@ -40,5 +48,32 @@ describe("ChatModel provider option aliases", () => {
       max_tokens: 4096,
       reasoning_effort: "minimal",
     });
+  });
+
+  it("should derive visible output tokens when reasoning tokens are reported", () => {
+    expect(
+      extractUsage({
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 40,
+          total_tokens: 140,
+          completion_tokens_details: {
+            reasoning_tokens: 15,
+          },
+        },
+      })
+    ).to.deep.equal({
+      inputTokens: 100,
+      outputTokens: 40,
+      visibleOutputTokens: 25,
+      totalTokens: 140,
+      reasoningTokens: 15,
+      cachedInputTokens: undefined,
+    });
+  });
+
+  it("should mark missing finish reasons as unknown", () => {
+    expect(extractFinishReason({})).to.equal("unknown");
+    expect(extractFinishReason({ finish_reason: "length" })).to.equal("length");
   });
 });

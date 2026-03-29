@@ -20,12 +20,21 @@ export class MockCompletionModel implements ICompletionModel {
       temperature,
       completions,
       usage,
+      rawChoiceCount,
+      finishReasons,
     } of data.prompts) {
       const prompt = readFileSync(
         path.join(path.dirname(file), "prompts", promptFile),
         "utf8"
       );
-      model.addCompletions(prompt, temperature, completions, usage);
+      model.addCompletions(
+        prompt,
+        temperature,
+        completions,
+        usage,
+        rawChoiceCount,
+        finishReasons
+      );
     }
     return model;
   }
@@ -38,11 +47,15 @@ export class MockCompletionModel implements ICompletionModel {
     prompt: string,
     temperature: number,
     completions: string[],
-    usage?: ITokenUsage
+    usage?: ITokenUsage,
+    rawChoiceCount?: number,
+    finishReasons?: string[]
   ) {
     this.completionMap.set(this.key(prompt, temperature), {
       completions: new Set(completions),
       usage,
+      rawChoiceCount,
+      finishReasons,
     });
   }
 
@@ -65,6 +78,8 @@ export class MockCompletionModel implements ICompletionModel {
     return {
       completions: new Set(completionResult.completions),
       usage: completionResult.usage,
+      rawChoiceCount: completionResult.rawChoiceCount,
+      finishReasons: completionResult.finishReasons,
     };
   }
 }

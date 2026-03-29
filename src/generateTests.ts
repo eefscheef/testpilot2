@@ -64,10 +64,11 @@ export class TestGenerator {
         }
         generatedPrompts.set(assembledPrompt, prompt);
 
-        const { completions, usage } = await this.model.completions(
+        const { completions, usage, rawChoiceCount, finishReasons } =
+          await this.model.completions(
           assembledPrompt,
           temperature
-        );
+          );
         for (const completion of completions) {
           const tests = extractTestFromCompletion(completion);
           if (tests.size > 0) {
@@ -89,7 +90,9 @@ export class TestGenerator {
           prompt,
           temperature,
           completions,
-          usage
+          usage,
+          rawChoiceCount,
+          finishReasons
         );
       }
     }

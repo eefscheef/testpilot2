@@ -16,6 +16,10 @@ export interface IPromptInfo {
   completions: Set<string>;
   /** Token usage reported by the provider for this prompt, if any. */
   usage?: ITokenUsage;
+  /** Number of raw choices returned by the provider before deduping or skipping non-text choices. */
+  rawChoiceCount?: number;
+  /** Finish reasons returned by the provider for the raw choices. */
+  finishReasons?: string[];
 }
 
 export interface ITestResultCollector {
@@ -50,7 +54,9 @@ export interface ITestResultCollector {
     prompt: Prompt,
     temperature: number,
     completions: Set<string>,
-    usage?: ITokenUsage
+    usage?: ITokenUsage,
+    rawChoiceCount?: number,
+    finishReasons?: string[]
   ): void;
 
   /**
@@ -105,7 +111,9 @@ class BaseTestResultCollector implements ITestResultCollector {
     prompt: Prompt,
     temperature: number,
     completions: Set<string>,
-    usage?: ITokenUsage
+    usage?: ITokenUsage,
+    rawChoiceCount?: number,
+    finishReasons?: string[]
   ) {
     const id = this.prompts.size;
     const file = `prompt_${id}.js`;
@@ -116,6 +124,8 @@ class BaseTestResultCollector implements ITestResultCollector {
       temperature,
       completions,
       usage,
+      rawChoiceCount,
+      finishReasons,
     });
   }
 
@@ -143,6 +153,7 @@ class BaseTestResultCollector implements ITestResultCollector {
         ITokenUsageSummary,
         | "inputTokens"
         | "outputTokens"
+        | "visibleOutputTokens"
         | "totalTokens"
         | "reasoningTokens"
         | "cachedInputTokens"
@@ -164,6 +175,10 @@ class BaseTestResultCollector implements ITestResultCollector {
       promptsWithUsage++;
       addIfDefined("inputTokens", promptInfo.usage.inputTokens);
       addIfDefined("outputTokens", promptInfo.usage.outputTokens);
+      addIfDefined(
+        "visibleOutputTokens",
+        promptInfo.usage.visibleOutputTokens
+      );
       addIfDefined("totalTokens", promptInfo.usage.totalTokens);
       addIfDefined("reasoningTokens", promptInfo.usage.reasoningTokens);
       addIfDefined("cachedInputTokens", promptInfo.usage.cachedInputTokens);
