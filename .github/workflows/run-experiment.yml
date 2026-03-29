@@ -5,7 +5,7 @@ on:
     inputs:
       packages:
         description: "Packages to generate tests for"
-        default: "+node-geo-point.txt"
+        default: "+plural.txt"
       snippetsFrom:
         description: "Code snippets source"
         default: "doc"
@@ -17,10 +17,10 @@ on:
         default: "20"
       maxTokens:
         description: "Maximum number of tokens in each completion"
-        default: "4096"
+        default: "10000"
       reasoningEffort:
-        description: 'Optional provider reasoning effort, e.g. "minimal", "low", "medium", or "high"'
-        default: ""
+        description: 'Optional provider reasoning effort, e.g. "none", "minimal", "low", "medium", or "high"'
+        default: "none"
       maxTokensPerMinute:
         description: "Max estimated provider tokens per minute (empty disables token pacing)"
         default: ""
@@ -30,7 +30,7 @@ on:
       model:
         description: "Which LLM API to use"
         type: "string"
-        default: "gemini-3-pro-preview"
+        default: "gpt-5.4"
       llmApiEndpoint:
         description: "Full chat completions endpoint URL to use for this run (leave empty to use TESTPILOT_LLM_API_ENDPOINT)"
         default: ""
@@ -70,11 +70,11 @@ jobs:
       packages: "${{ steps.parse_packages.outputs.packages }}"
       snippetsFrom: "${{ github.event.inputs.snippetsFrom || 'doc' }}"
       snippetLength: "${{ github.event.inputs.snippetLength || '20' }}"
-      maxTokens: "${{ github.event.inputs.maxTokens || '1000' }}"
-      reasoningEffort: "${{ github.event.inputs.reasoningEffort || '' }}"
+      maxTokens: "${{ github.event.inputs.maxTokens || '10000' }}"
+      reasoningEffort: "${{ github.event.inputs.reasoningEffort || 'none' }}"
       temperatures: "${{ github.event.inputs.temperatures || '0.0' }}"
       numSnippets: "${{ github.event.inputs.numSnippets || 'all' }}"
-      model: "${{ github.event.inputs.model || 'gemini-3-pro-preview' }}"
+      model: "${{ github.event.inputs.model || 'gpt-5.4' }}"
       packageCount: "${{ steps.parse_packages.outputs.packageCount }}"
       template: "./templates/template.hb"
       retryTemplate: "./templates/retry-template.hb"
@@ -89,7 +89,7 @@ jobs:
         run: |
           packages=$(node ${GITHUB_WORKSPACE}/.github/parse_packages.js \
             ${{ github.event.inputs.skipSlowBenchmarks == 'true' && '--skip-slow-benchmarks' || '' }} \
-            "${{ github.event.inputs.packages || '+benchmarks.txt' }}")
+            "${{ github.event.inputs.packages || '+plural.txt' }}")
           package_count=$(node -e "console.log(JSON.parse(process.argv[1]).length)" "$packages")
           echo "packages=$packages" >> $GITHUB_OUTPUT
           echo "packageCount=$package_count" >> $GITHUB_OUTPUT
