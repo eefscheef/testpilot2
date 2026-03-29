@@ -301,7 +301,7 @@ jobs:
 
       - name: Combine output zips
         run: |
-          mkdir results
+          mkdir -p results
           expected="${{ needs.setup.outputs.packageCount }}"
           found=$(find . -type f -name '*.zip' | wc -l)
           if [ "$found" -ne "$expected" ]; then
@@ -315,14 +315,33 @@ jobs:
             find . -maxdepth 3 -type f | sort
             exit 1
           fi
-          # download-artifact@v8 with skip-decompress can produce a zip that contains
-          # the uploaded results.zip; unpack repeatedly until the nested zip is gone.
-          while mapfile -t zips < <(find . -type f -name '*.zip' -not -path './results.zip') && [ ${#zips[@]} -gt 0 ]; do
-            for zip in "${zips[@]}"; do
-              unzip -oq "$zip"
-              rm -f "$zip"
+
+          scratch=$(mktemp -d)
+          for artifact_zip in "${zips[@]}"; do
+            artifact_name=$(basename "$(dirname "$artifact_zip")")
+            workdir="$scratch/$artifact_name"
+            mkdir -p "$workdir"
+            cp "$artifact_zip" "$workdir/"
+
+            # Each downloaded artifact can itself contain the uploaded results.zip.
+            # Unpack within an isolated directory so same-named nested zips do not overwrite
+            # each other across packages.
+            while mapfile -t nested_zips < <(find "$workdir" -type f -name '*.zip') && [ ${#nested_zips[@]} -gt 0 ]; do
+              for zip in "${nested_zips[@]}"; do
+                unzip -oq "$zip" -d "$(dirname "$zip")"
+                rm -f "$zip"
+              done
             done
+
+            if [ ! -d "$workdir/results" ]; then
+              echo "ERROR: Expected extracted results directory not found for $artifact_name"
+              find "$workdir" -maxdepth 4 | sort
+              exit 1
+            fi
+
+            cp -a "$workdir/results/." results/
           done
+
           zip -r results.zip results
       - name: Upload combined output files
         uses: actions/upload-artifact@v7
