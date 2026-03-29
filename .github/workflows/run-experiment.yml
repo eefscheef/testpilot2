@@ -387,7 +387,29 @@ jobs:
           fi
           cd ..
 
-          echo '${{ toJson(needs.setup.outputs) }}' > config.json
+          cat > config.json <<EOF
+          {
+            "model": "${{ needs.setup.outputs.model }}",
+            "packages": "${{ github.event.inputs.packages || '+plural.txt' }}",
+            "packageCount": "${{ needs.setup.outputs.packageCount }}",
+            "snippetsFrom": "${{ needs.setup.outputs.snippetsFrom }}",
+            "numSnippets": "${{ needs.setup.outputs.numSnippets }}",
+            "snippetLength": "${{ needs.setup.outputs.snippetLength }}",
+            "maxTokens": "${{ needs.setup.outputs.maxTokens }}",
+            "reasoningEffort": "${{ needs.setup.outputs.reasoningEffort }}",
+            "maxTokensPerMinute": "${{ github.event.inputs.maxTokensPerMinute || '' }}",
+            "temperatures": "${{ needs.setup.outputs.temperatures }}",
+            "llmApiEndpoint": "${{ github.event.inputs.llmApiEndpoint != '' && github.event.inputs.llmApiEndpoint || 'TESTPILOT_LLM_API_ENDPOINT' }}",
+            "llmAuthHeadersSecretName": "${{ github.event.inputs.llmAuthHeadersSecretName || 'TESTPILOT_LLM_AUTH_HEADERS' }}",
+            "compareTo": "${{ github.event.inputs.compareTo || '' }}",
+            "skipSlowBenchmarks": "${{ github.event.inputs.skipSlowBenchmarks || false }}",
+            "rateLimiting": "${{ github.event.inputs.rateLimiting || false }}",
+            "maxRequestsPerMinute": "${{ github.event.inputs.maxRequestsPerMinute || '' }}",
+            "failOnProviderError": "${{ github.event.inputs.failOnProviderError || true }}",
+            "template": "${{ needs.setup.outputs.template }}",
+            "retryTemplate": "${{ needs.setup.outputs.retryTemplate }}"
+          }
+          EOF
           if [ -d baseline ]; then
             cd baseline
             while mapfile -t zips < <(find . -type f -name '*.zip') && [ ${#zips[@]} -gt 0 ]; do

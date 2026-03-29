@@ -16,6 +16,16 @@ function percentage(p: number | string) {
   }
 }
 
+function formatParameterValue(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return "(empty)";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
 type DiffCoverageStats = {
   [packageName: string]: { [key: keyof CoverageStats]: string | number };
 };
@@ -259,14 +269,13 @@ const config = hasConfig
   : {};
 const artifactDir = hasConfig ? process.argv[4] : process.argv[2];
 const baselineArtifactDir = hasConfig ? process.argv[5] : process.argv[4];
+const parameters = { model, ...config };
 
 console.log(`
 # Parameters
-- model: ${model}
-- temperatures: ${config.temperatures}
-- snippets from: ${config.snippetsFrom}
-- snippet length: ${config.snippetLength}
-- numSnippets: ${config.numSnippets}`);
+${Object.entries(parameters)
+  .map(([key, value]) => `- ${key}: ${formatParameterValue(value)}`)
+  .join("\n")}`);
 
 const {
   coverageStats,
