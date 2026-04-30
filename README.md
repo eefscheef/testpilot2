@@ -103,8 +103,8 @@ the individual results of each package.
 
 The workflow accepts optional provider-specific inputs:
 
-- `llmApiEndpoint`: override the endpoint for a single run without changing the
-  repository secret.
+- `llmApiEndpointSecretName`: choose which secret contains the chat completions
+  endpoint URL for the selected provider.
 - `llmAuthHeadersSecretName`: choose which secret contains the JSON auth headers
   for the selected provider.
 - `reasoningEffort`: pass provider reasoning effort through to the chat API.

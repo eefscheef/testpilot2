@@ -31,12 +31,12 @@ on:
         description: "Which LLM API to use"
         type: "string"
         default: "gpt-5.4"
-      llmApiEndpoint:
-        description: "Full chat completions endpoint URL to use for this run (leave empty to use TESTPILOT_LLM_API_ENDPOINT)"
-        default: ""
+      llmApiEndpointSecretName:
+        description: "Secret name containing the full chat completions endpoint URL"
+        default: "TESTPILOT_AZURE_LLM_API_ENDPOINT"
       llmAuthHeadersSecretName:
         description: "Secret name containing JSON auth headers for the selected provider"
-        default: "TESTPILOT_LLM_AUTH_HEADERS"
+        default: "TESTPILOT_AZURE_LLM_AUTH_HEADERS"
       compareTo:
         description: "Run number of previous run to compare to (leave empty to skip comparison)"
         default: ""
@@ -191,7 +191,7 @@ jobs:
 
       - name: Generate tests
         env:
-          TESTPILOT_LLM_API_ENDPOINT: "${{ github.event.inputs.llmApiEndpoint != '' && github.event.inputs.llmApiEndpoint || secrets.TESTPILOT_LLM_API_ENDPOINT }}"
+          TESTPILOT_LLM_API_ENDPOINT: "${{ secrets[github.event.inputs.llmApiEndpointSecretName] }}"
           TESTPILOT_LLM_AUTH_HEADERS: "${{ secrets[github.event.inputs.llmAuthHeadersSecretName] }}"
         run: |
           cd testpilot
@@ -418,8 +418,8 @@ jobs:
             "reasoningEffort": "${{ needs.setup.outputs.reasoningEffort }}",
             "maxTokensPerMinute": "${{ github.event.inputs.maxTokensPerMinute || '' }}",
             "temperatures": "${{ needs.setup.outputs.temperatures }}",
-            "llmApiEndpoint": "${{ github.event.inputs.llmApiEndpoint != '' && github.event.inputs.llmApiEndpoint || 'TESTPILOT_LLM_API_ENDPOINT' }}",
-            "llmAuthHeadersSecretName": "${{ github.event.inputs.llmAuthHeadersSecretName || 'TESTPILOT_LLM_AUTH_HEADERS' }}",
+            "llmApiEndpointSecretName": "${{ github.event.inputs.llmApiEndpointSecretName || 'TESTPILOT_AZURE_LLM_API_ENDPOINT' }}",
+            "llmAuthHeadersSecretName": "${{ github.event.inputs.llmAuthHeadersSecretName || 'TESTPILOT_AZURE_LLM_AUTH_HEADERS' }}",
             "compareTo": "${{ github.event.inputs.compareTo || '' }}",
             "skipSlowBenchmarks": "${{ github.event.inputs.skipSlowBenchmarks || false }}",
             "rateLimiting": "${{ github.event.inputs.rateLimiting || false }}",
