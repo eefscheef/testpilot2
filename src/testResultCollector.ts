@@ -1,7 +1,12 @@
 import { ITokenUsage } from "./completionModel";
 import { emptyCoverageSummary, ICoverageSummary } from "./coverage";
 import { Prompt } from "./promptCrafting";
-import { ITestInfo, ITokenUsageSummary, TestOutcome } from "./report";
+import {
+  ITestInfo,
+  ITokenCacheDiagnostics,
+  ITokenUsageSummary,
+  TestOutcome,
+} from "./report";
 
 export interface IPromptInfo {
   /** The prompt. */
@@ -148,6 +153,11 @@ class BaseTestResultCollector implements ITestResultCollector {
       promptsWithUsage: 0,
       promptsWithoutUsage: 0,
     };
+    const cacheDiagnostics: ITokenCacheDiagnostics = {
+      tokenFieldsObserved: false,
+      cacheReadInputTokensObserved: false,
+      cacheCreationInputTokensObserved: false,
+    };
     const addIfDefined = (
       key: keyof Pick<
         ITokenUsageSummary,
@@ -156,7 +166,8 @@ class BaseTestResultCollector implements ITestResultCollector {
         | "visibleOutputTokens"
         | "totalTokens"
         | "reasoningTokens"
-        | "cachedInputTokens"
+        | "cacheReadInputTokens"
+        | "cacheCreationInputTokens"
       >,
       value: number | undefined
     ) => {
@@ -175,13 +186,26 @@ class BaseTestResultCollector implements ITestResultCollector {
       promptsWithUsage++;
       addIfDefined("inputTokens", promptInfo.usage.inputTokens);
       addIfDefined("outputTokens", promptInfo.usage.outputTokens);
-      addIfDefined(
-        "visibleOutputTokens",
-        promptInfo.usage.visibleOutputTokens
-      );
+      addIfDefined("visibleOutputTokens", promptInfo.usage.visibleOutputTokens);
       addIfDefined("totalTokens", promptInfo.usage.totalTokens);
       addIfDefined("reasoningTokens", promptInfo.usage.reasoningTokens);
-      addIfDefined("cachedInputTokens", promptInfo.usage.cachedInputTokens);
+      addIfDefined(
+        "cacheReadInputTokens",
+        promptInfo.usage.cacheReadInputTokens
+      );
+      addIfDefined(
+        "cacheCreationInputTokens",
+        promptInfo.usage.cacheCreationInputTokens
+      );
+
+      if (promptInfo.usage.cacheReadInputTokens !== undefined) {
+        cacheDiagnostics.cacheReadInputTokensObserved = true;
+        cacheDiagnostics.tokenFieldsObserved = true;
+      }
+      if (promptInfo.usage.cacheCreationInputTokens !== undefined) {
+        cacheDiagnostics.cacheCreationInputTokensObserved = true;
+        cacheDiagnostics.tokenFieldsObserved = true;
+      }
     }
 
     if (promptsWithUsage === 0 && promptsWithoutUsage === 0) {
@@ -190,6 +214,7 @@ class BaseTestResultCollector implements ITestResultCollector {
 
     summary.promptsWithUsage = promptsWithUsage;
     summary.promptsWithoutUsage = promptsWithoutUsage;
+    summary.cacheDiagnostics = cacheDiagnostics;
     return summary;
   }
 }

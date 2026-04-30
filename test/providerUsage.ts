@@ -41,13 +41,20 @@ describe("provider usage artifacts", () => {
         1
       );
 
-      collector.recordPromptInfo(prompt, 0, new Set(["completion one"]), {
-        inputTokens: 100,
-        outputTokens: 25,
-        visibleOutputTokens: 20,
-        totalTokens: 125,
-        reasoningTokens: 5,
-      }, 3, ["stop", "length", "stop"]);
+      collector.recordPromptInfo(
+        prompt,
+        0,
+        new Set(["completion one"]),
+        {
+          inputTokens: 100,
+          outputTokens: 25,
+          visibleOutputTokens: 20,
+          totalTokens: 125,
+          reasoningTokens: 5,
+        },
+        3,
+        ["stop", "length", "stop"]
+      );
       collector.recordPromptInfo(
         promptWithSnippets,
         0,
@@ -96,6 +103,11 @@ describe("provider usage artifacts", () => {
         reasoningTokens: 5,
         promptsWithUsage: 1,
         promptsWithoutUsage: 1,
+        cacheDiagnostics: {
+          tokenFieldsObserved: false,
+          cacheReadInputTokensObserved: false,
+          cacheCreationInputTokensObserved: false,
+        },
       });
     } finally {
       fs.rmSync(packageDir, { recursive: true, force: true });

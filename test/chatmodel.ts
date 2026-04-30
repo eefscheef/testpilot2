@@ -68,7 +68,8 @@ describe("ChatModel provider option aliases", () => {
       visibleOutputTokens: 25,
       totalTokens: 140,
       reasoningTokens: 15,
-      cachedInputTokens: undefined,
+      cacheReadInputTokens: undefined,
+      cacheCreationInputTokens: undefined,
     });
   });
 

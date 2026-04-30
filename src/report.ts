@@ -70,11 +70,33 @@ export interface IMetaData {
   numCompletions: number;
 }
 
+/**
+ * Lightweight signals describing whether the provider exposed prompt-cache
+ * fields in any per-call usage. Useful for diagnosing "is the cache even
+ * being hit?" — distinguishes "caching is wired up but the provider didn't
+ * fire it" from "caching is not wired up at all" without re-walking raw
+ * responses.
+ */
+export interface ITokenCacheDiagnostics {
+  /** True if any single response carried any cache token field. */
+  tokenFieldsObserved: boolean;
+  /** True if at least one response had a non-undefined cache-read count. */
+  cacheReadInputTokensObserved: boolean;
+  /** True if at least one response had a non-undefined cache-creation count. */
+  cacheCreationInputTokensObserved: boolean;
+}
+
 export interface ITokenUsageSummary extends ITokenUsage {
   /** Number of prompts for which the provider reported usage. */
   promptsWithUsage: number;
   /** Number of prompts for which the provider did not report usage. */
   promptsWithoutUsage: number;
+  /**
+   * Cache-field observation diagnostics. Populated whenever the summary is
+   * returned (i.e. whenever any prompt was recorded). Omitted from the JSON
+   * output when undefined.
+   */
+  cacheDiagnostics?: ITokenCacheDiagnostics;
 }
 
 export type ReportForTest = {

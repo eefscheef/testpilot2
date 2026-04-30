@@ -13,8 +13,30 @@ export interface ITokenUsage {
   totalTokens?: number;
   /** Tokens spent on internal reasoning or thinking, if the provider exposes them. */
   reasoningTokens?: number;
-  /** Cached input tokens, if the provider exposes them separately. */
-  cachedInputTokens?: number;
+  /**
+   * Input tokens served from a prompt-cache hit, if the provider exposes them.
+   *
+   * Provider semantics differ — the value is the count the provider reports,
+   * not a billing-normalized figure:
+   *
+   * - OpenAI / Azure OpenAI: `usage.prompt_tokens_details.cached_tokens` IS
+   *   already counted inside `usage.prompt_tokens` (subset).
+   * - Anthropic: `usage.cache_read_input_tokens` is reported SEPARATELY from
+   *   `usage.input_tokens` (additive, not a subset).
+   * - Google Gemini: `usageMetadata.cachedContentTokenCount` IS already
+   *   counted inside `usageMetadata.promptTokenCount` (subset).
+   *
+   * Consumers that compute "billable input tokens" must branch on provider;
+   * do not blindly subtract this from `inputTokens`.
+   */
+  cacheReadInputTokens?: number;
+  /**
+   * Input tokens newly written into the prompt cache on a miss, if the
+   * provider exposes them. Anthropic-only as of writing —
+   * `usage.cache_creation_input_tokens`. OpenAI and Gemini do not currently
+   * surface a creation counter.
+   */
+  cacheCreationInputTokens?: number;
 }
 
 export interface ICompletionResult {

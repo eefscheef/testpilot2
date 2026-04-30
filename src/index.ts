@@ -24,6 +24,7 @@ export {
   ITestFailureInfo,
   ITestInfo,
   ITestReport,
+  ITokenCacheDiagnostics,
   ITokenUsageSummary,
   ReportForTest,
   TestOutcome,

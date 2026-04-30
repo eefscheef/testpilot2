@@ -140,10 +140,20 @@ export class ChatModel implements ICompletionModel {
         usageMetadata?.totalTokenCount ??
         usageMetadata?.total_token_count,
       reasoningTokens,
-      cachedInputTokens:
+      cacheReadInputTokens:
+        // LangChain-style normalized input token details. Rare in raw HTTP,
+        // but some proxies pass it through; cheap and future-proof.
+        usage?.input_token_details?.cache_read ??
+        // Anthropic raw shape.
+        usage?.cache_read_input_tokens ??
+        // OpenAI / Azure OpenAI raw shape (subset of prompt_tokens).
         usage?.prompt_tokens_details?.cached_tokens ??
+        // Gemini raw shape (subset of promptTokenCount).
         usageMetadata?.cachedContentTokenCount ??
         usageMetadata?.cachedPromptTokenCount,
+      cacheCreationInputTokens:
+        usage?.input_token_details?.cache_creation ??
+        usage?.cache_creation_input_tokens,
     };
 
     if (Object.values(normalized).every((value) => value === undefined)) {

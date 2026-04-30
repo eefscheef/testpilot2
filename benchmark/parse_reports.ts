@@ -54,6 +54,8 @@ export type TokenUsageStats = {
     visibleOutputTokens: number | "--";
     reasoningTokens: number | "--";
     totalTokens: number | "--";
+    cacheReadInputTokens: number | "--";
+    cacheCreationInputTokens: number | "--";
     promptsWithUsage: number;
     promptsWithoutUsage: number;
   };
@@ -329,6 +331,8 @@ export function parseReports(
       visibleOutputTokens: tokenUsage?.visibleOutputTokens ?? "--",
       reasoningTokens: tokenUsage?.reasoningTokens ?? "--",
       totalTokens: tokenUsage?.totalTokens ?? "--",
+      cacheReadInputTokens: tokenUsage?.cacheReadInputTokens ?? "--",
+      cacheCreationInputTokens: tokenUsage?.cacheCreationInputTokens ?? "--",
       promptsWithUsage: tokenUsage?.promptsWithUsage ?? 0,
       promptsWithoutUsage: tokenUsage?.promptsWithoutUsage ?? 0,
     };

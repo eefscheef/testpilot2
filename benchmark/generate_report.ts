@@ -145,14 +145,46 @@ function printTokenUsageReport(title: string, stats: TokenUsageStats) {
     return;
   }
 
+  const showCacheRead = Object.values(stats).some(
+    (entry) => entry.cacheReadInputTokens !== "--"
+  );
+  const showCacheCreation = Object.values(stats).some(
+    (entry) => entry.cacheCreationInputTokens !== "--"
+  );
+
+  const headerExtras: string[] = [];
+  const separatorExtras: string[] = [];
+  if (showCacheRead) {
+    headerExtras.push("Cache-read input tokens");
+    separatorExtras.push("--:");
+  }
+  if (showCacheCreation) {
+    headerExtras.push("Cache-creation input tokens");
+    separatorExtras.push("--:");
+  }
+  const headerExtrasStr = headerExtras.length
+    ? ` | ${headerExtras.join(" | ")}`
+    : "";
+  const separatorExtrasStr = separatorExtras.length
+    ? ` | ${separatorExtras.join(" | ")}`
+    : "";
+
   console.log(`
 # ${title}
-Project | Input tokens | Output tokens | Visible output tokens | Reasoning tokens | Total tokens | Prompts with usage | Prompts without usage
---- | --: | --: | --: | --: | --: | --: | --:`);
+Project | Input tokens | Output tokens | Visible output tokens | Reasoning tokens | Total tokens${headerExtrasStr} | Prompts with usage | Prompts without usage
+--- | --: | --: | --: | --: | --:${separatorExtrasStr} | --: | --:`);
 
   for (const entry of Object.values(stats)) {
+    const rowExtras: string[] = [];
+    if (showCacheRead) {
+      rowExtras.push(`${entry.cacheReadInputTokens}`);
+    }
+    if (showCacheCreation) {
+      rowExtras.push(`${entry.cacheCreationInputTokens}`);
+    }
+    const rowExtrasStr = rowExtras.length ? ` | ${rowExtras.join(" | ")}` : "";
     console.log(
-      `${entry.proj} | ${entry.inputTokens} | ${entry.outputTokens} | ${entry.visibleOutputTokens} | ${entry.reasoningTokens} | ${entry.totalTokens} | ${entry.promptsWithUsage} | ${entry.promptsWithoutUsage}`
+      `${entry.proj} | ${entry.inputTokens} | ${entry.outputTokens} | ${entry.visibleOutputTokens} | ${entry.reasoningTokens} | ${entry.totalTokens}${rowExtrasStr} | ${entry.promptsWithUsage} | ${entry.promptsWithoutUsage}`
     );
   }
 }
