@@ -183,6 +183,32 @@ the fix so that the impact on prior results is documented.
   completions truncated mid-token. Regression test in
   [`test/syntax.ts`](./test/syntax.ts) (`should accept already-valid code
   containing URL strings with //`).
+- **Quantified impact (chat-era vs. completion-era).** The bug is
+  *symmetric in incidence* across model generations but *asymmetric in
+  damage*. Re-validating the on-disk test files from the ICSE 2024 paper
+  artifact through the post-fix harness (see `scripts/rerun-og.sh` and
+  `scripts/rerun-tests.js`) shows that for the completion-era models the
+  bug was masking nothing: across 30 runs (10 each of `cushman`,
+  `gpt-3.5-turbo`, `starcoder`) on `crawler-url-parser`, the 6–8 tests
+  per run that the bug rejected as `"Invalid syntax"` *all* fail at
+  runtime when the fix lets them through, recovering exactly **0** passes
+  and **0%** coverage on average. By contrast, replaying the gpt-5.4
+  run on the same package goes from 0/29 passes (0% coverage) to 10/26
+  passes (**94.59%** coverage) — i.e. the bug deletes ~10 legitimate
+  passes per package once the underlying tests are URL-dense *and*
+  internally correct. The change in damage tracks the change in test
+  density: chat-era tests pack avg 9.6 `//` per `it(...)` (max 33) vs.
+  2.1–2.6 (max 4–5) in the OG runs, putting them well past the point
+  where the residual-bracket trick can recover.
+
+  | Era | Runs sampled | Tests rejected by bug (avg / run) | Would-have-passed (recovered) | Coverage lost |
+  |---|---|---|---|---|
+  | Completion models on `crawler-url-parser` | 30 | 6.10–8.00 | 0.00 | 0.00 pp |
+  | Chat model (gpt-5.4) on `crawler-url-parser` | 1 | 22 | 10 | 94.59 pp |
+
+  Per-run rerun summaries are in `results/og-rerun/`; the gpt-5.4
+  harness-replay outputs are in
+  `results/image-downloader-crawler-url-parser/replay/`.
 
 ## License
 
