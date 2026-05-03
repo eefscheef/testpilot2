@@ -58,6 +58,25 @@ describe("test closeBrackets", function () {
     });
   }
 
+  it("should accept already-valid code containing URL strings with //", function () {
+    const complete = dedent`
+            let mocha = require('mocha');
+            let assert = require('assert');
+            let crawler_url_parser = require('crawler-url-parser');
+            describe('test', function() {
+                it('test', function(done) {
+                    let r = crawler_url_parser.parse('http://example.com/a/b?x=1#frag');
+                    assert.strictEqual(r.protocol, 'http:');
+                    let r2 = crawler_url_parser.parse('//cdn.example.net/lib.js', 'https://site.example.com/page');
+                    assert.strictEqual(r2.protocol, 'https:');
+                    done();
+                });
+            });`;
+    const result = closeBrackets(complete);
+    expect(result).to.not.be.undefined;
+    expect(result!.source).to.equal(complete);
+  });
+
   it("should handle square brackets", function () {
     expect(
       closeBrackets(dedent`

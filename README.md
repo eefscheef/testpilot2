@@ -147,6 +147,43 @@ flag handle treat missing prompts by treating them as getting no response from
 the model. This will not, in general, produce the same results as the initial
 run, but suffices in many cases.
 
+## Fixed bugs
+
+This section catalogues bugs that existed in upstream TestPilot and were fixed
+in this fork. Each entry records the symptom, the root cause, and a pointer to
+the fix so that the impact on prior results is documented.
+
+### `closeBrackets` misreads `//` inside string literals as a line comment
+
+- **Symptom.** Generated tests that contained URL string literals (e.g.
+  `'http://example.com/path'`) were rejected before ever reaching Mocha and
+  recorded with `outcome.err.message === "Invalid syntax"` in `report.json`.
+  The test files written to disk were syntactically valid JavaScript — the
+  rejection happened in TestPilot's internal pre-validator.
+- **Root cause.** `closeBrackets` in `src/syntax.ts` performs a hand-rolled
+  byte-level scan to count brackets, but does not track string-literal
+  context. When the scanner encountered `//` inside a string (very common in
+  URL-bearing tests), it treated the rest of the line as a line comment and
+  skipped the closing `)`, `,`, `;`, etc. on that line, throwing off bracket
+  balance. The "rescued" code (`code + appendedBrackets`) then failed
+  `espree.parse` and `closeBrackets` returned `undefined`, which
+  `generateTests.ts` reports as `"Invalid syntax"`.
+- **Impact.** The bug was present in upstream TestPilot since at least the
+  ICSE 2024 paper artifact: the `cushman`, `gpt-3.5-turbo`, and `starcoder`
+  runs in `artifact-tse-minorrev` show 35-57% of `crawler-url-parser` tests
+  failing with `"Invalid syntax"`. Modern chat models pack ~4× more URLs
+  per `it(...)` block than the older completion models did (avg 9.6 `//`
+  per test for GPT-5.4 vs. 2.1-2.6 for the OG runs, max 33 vs. 4-5), which
+  amplified the pre-existing bug to 76% of `crawler-url-parser` tests in
+  this fork before the fix.
+- **Fix.** Try `espree.parse(code)` first; if the input is already
+  syntactically valid JavaScript, accept it as-is and skip the bracket-
+  balancing scanner entirely. The scanner still runs as a fallback when
+  espree rejects the code, preserving its original purpose of rescuing
+  completions truncated mid-token. Regression test in
+  [`test/syntax.ts`](./test/syntax.ts) (`should accept already-valid code
+  containing URL strings with //`).
+
 ## License
 
 This project is licensed under the terms of the MIT open source license. Please refer to [MIT](./LICENSE.txt) for the full terms.

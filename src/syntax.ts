@@ -20,6 +20,15 @@ const closers = new Set(closing.values());
 export function closeBrackets(
   code: string
 ): { source: string; ast: any } | undefined {
+  // If the code already parses, accept it as-is. The naive scanner below
+  // does not track string-literal context, so a URL like 'http://x/y' would
+  // be misread as a `//` line comment and trick it into discarding closing
+  // brackets that are actually present in the source.
+  try {
+    const ast = espree.parse(code, { ecmaVersion: "latest" });
+    return { source: code.trim(), ast };
+  } catch {}
+
   let brackets = ""; // all outstanding closing brackets, in order
   for (let i = 0; i < code.length; ++i) {
     if (code[i] === "/" && code[i + 1] === "/") {
